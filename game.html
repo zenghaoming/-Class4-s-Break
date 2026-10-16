@@ -1,0 +1,1688 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>四班抽象之奕 - V34.8 阵营优选与绝对守恒版</title>
+    <style>
+        body { margin: 0; padding: 0; background-color: #1b4d2e; color: white; font-family: "微软雅黑", sans-serif; height: 100vh; overflow: hidden; position: relative; }
+        .screen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; }
+        #main-menu-screen { display: flex; flex-direction: column; justify-content: center; align-items: center; background: radial-gradient(circle, #2b5c3a 0%, #0a1f12 100%); z-index: 1000; }
+        .game-title { font-size: 60px; font-weight: 900; color: #ffeb3b; text-shadow: 0 5px 15px rgba(0,0,0,0.8), 2px 2px 0px #e91e63, -2px -2px 0px #4caf50; margin-bottom: 50px; letter-spacing: 5px; animation: floatTitle 3s infinite ease-in-out; }
+        @keyframes floatTitle { 0% { transform: translateY(0px); } 50% { transform: translateY(-15px); } 100% { transform: translateY(0px); } }
+        .menu-btn { background: linear-gradient(135deg, #ff9800, #e65100); color: white; border: 3px solid #fff; padding: 15px 40px; font-size: 24px; font-weight: bold; border-radius: 50px; cursor: pointer; box-shadow: 0 10px 20px rgba(0,0,0,0.5); transition: all 0.2s; margin-bottom: 30px; text-shadow: 1px 1px 2px black; }
+        .menu-btn:hover { transform: scale(1.1) translateY(-5px); box-shadow: 0 15px 25px rgba(0,0,0,0.7); background: linear-gradient(135deg, #ffb74d, #f57c00); }
+        .menu-btn:active { transform: scale(0.95); box-shadow: 0 5px 10px rgba(0,0,0,0.5); }
+        .settings-panel { background: rgba(0,0,0,0.6); padding: 20px 40px; border-radius: 15px; border: 2px solid #555; display: flex; flex-direction: column; align-items: center; gap: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .settings-panel label { font-size: 18px; font-weight: bold; color: #ddd; }
+        .volume-slider { -webkit-appearance: none; width: 200px; height: 8px; background: #555; border-radius: 5px; outline: none; transition: background 0.2s; }
+        .volume-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #4caf50; cursor: pointer; border: 2px solid #fff; box-shadow: 0 0 5px rgba(0,0,0,0.8); }
+        .volume-slider::-webkit-slider-thumb:hover { background: #81c784; transform: scale(1.2); }
+
+        .modal-overlay { display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.85); z-index: 100; justify-content: center; align-items: center; flex-direction: column;}
+        .modal-content { background-color: #2b5c3a; width: 80%; max-width: 650px; max-height: 80%; border-radius: 15px; border: 3px solid #ffeb3b; padding: 20px; overflow-y: auto; position: relative; box-shadow: 0 0 30px rgba(0,0,0,0.8); }
+        .modal-close { position: absolute; top: 10px; right: 15px; background: red; color: white; border: none; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 5px; padding: 5px 10px; }
+        .top-btn { background-color: #ff9800; color: white; border: 2px solid #fff; padding: 8px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: transform 0.2s; margin-left: 10px;}
+        .top-btn:hover { transform: scale(1.1); background-color: #e68a00; }
+        .top-btn.log-btn { background-color: #00bcd4; }
+        .top-btn.log-btn:hover { background-color: #00acc1; }
+        #top-bar { position: absolute; top: 20px; right: 20px; z-index: 50; display: flex; }
+        
+        #bond-log-area { position: absolute; top: 20px; left: 20px; width: 280px; height: 350px; background-color: rgba(0, 0, 0, 0.7); border-radius: 10px; border: 2px solid #ffeb3b; display: flex; flex-direction: column; z-index: 60; box-shadow: 0 0 15px rgba(0,0,0,0.5);}
+        #bond-log-title { color: #ffeb3b; font-weight: bold; text-align: center; padding: 10px; border-bottom: 1px solid #555; margin: 0; font-size: 14px; cursor: grab; user-select: none; background: rgba(255,255,255,0.1); border-radius: 8px 8px 0 0;}
+        #bond-log-title:active { cursor: grabbing; }
+        #bond-log-content { flex-grow: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .log-entry { background: rgba(255,255,255,0.1); padding: 8px; border-radius: 5px; border-left: 4px solid #ccc; font-size: 12px; line-height: 1.4; animation: fadeIn 0.15s ease-in;}
+        .log-entry.relation { border-left-color: #e91e63; } .log-entry.faction { border-left-color: #ff9800; } .log-entry.system { border-left-color: #4caf50; background: rgba(76, 175, 80, 0.1); } .log-entry.onplay { border-left-color: #9c27b0; background: rgba(156, 39, 176, 0.15); } 
+        .log-header { font-weight: bold; margin-bottom: 3px; } .log-desc { color: #ccc; font-size: 11px; margin-bottom: 3px;} .log-action { color: #4caf50; font-weight: bold;}
+        
+        .glossary-item { display: flex; align-items: flex-start; background-color: rgba(0,0,0,0.2); margin-bottom: 10px; padding: 10px; border-radius: 8px; } .glossary-icon-wrap { width: 40px; display: flex; justify-content: center; margin-right: 15px; margin-top: 5px; } .glossary-text h4 { margin: 0 0 5px 0; color: #ffeb3b; } .glossary-text p { margin: 0; font-size: 13px; color: #ddd; line-height: 1.4; }
+        #deck-grid { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 20px;} 
+        .deck-item { background-color: white; color: black; width: 60px; height: 90px; border-radius: 5px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; font-weight: bold; font-size: 12px; padding: 5px 2px; box-sizing: border-box; position: relative;} 
+        .deck-count { color: #e91e63; font-size: 16px; font-weight: 900; }
+        
+        #center-board { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 48vw; height: 48vh; min-width: 460px; min-height: 380px; background-color: rgba(0, 0, 0, 0.2); border-radius: 20px; box-shadow: inset 0 0 30px rgba(0,0,0,0.5); z-index: 10; }
+        #center-info { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 15; background-color: rgba(0,0,0,0.88); padding: 12px 16px; border-radius: 12px; min-width: 280px; border: 2px solid #555; max-width: 360px;}
+        #action-panel { display: none; margin-top: 8px; } #action-text { color: white; font-weight: bold; margin-bottom: 6px; font-size: 13px; line-height: 1.4;} 
+        #pending-card-display { display: flex; justify-content: center; margin: 6px 0; min-height: 80px;}
+        #pending-card-hint { font-size: 11px; background: rgba(0,0,0,0.5); border-radius: 6px; padding: 6px 8px; margin-bottom: 8px; text-align: left; border: 1px dashed #777;}
+        .hint-badge-relation { color: #ff80ab; font-weight: bold; }
+        .hint-badge-faction { color: #ffd54f; font-weight: bold; }
+
+        .action-btn { margin: 4px; padding: 8px 14px; background-color: #e91e63; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 13px; display: none; box-shadow: 0 4px 0 #880e4f; } 
+        .action-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #880e4f; } 
+        .action-btn.pass { background-color: #757575; box-shadow: 0 4px 0 #424242;} .action-btn.confirm { background-color: #4caf50; box-shadow: 0 4px 0 #1b5e20;}
+        .action-btn.restart { background-color: #2196f3; box-shadow: 0 4px 0 #0d47a1; width: 100%; margin-top: 10px; display: none; }
+        .action-btn.menu { background-color: #ff9800; box-shadow: 0 4px 0 #e65100; width: 100%; margin-top: 10px; display: none; }
+        .action-btn.interrupt { background-color: #9c27b0; box-shadow: 0 4px 0 #6a1b9a; animation: pulse-hint 1s infinite; }
+        
+        .river { position: absolute; display: flex; flex-wrap: wrap; gap: 1px; padding: 3px; background-color: rgba(0,0,0,0.3); border-radius: 5px;} 
+        #river-0 { bottom: 10px; left: 50%; transform: translateX(-50%); width: 65%; height: 25%; justify-content: center; align-content: flex-start;} 
+        #river-2 { top: 10px; left: 50%; transform: translateX(-50%); width: 65%; height: 25%; justify-content: center; align-content: flex-end;} 
+        #river-1 { left: 10px; top: 50%; transform: translateY(-50%); width: 25%; height: 65%; flex-direction: column; align-content: flex-start;} 
+        #river-3 { right: 10px; top: 50%; transform: translateY(-50%); width: 25%; height: 65%; flex-direction: column; align-content: flex-end;}
+        
+        .player-area { position: absolute; display: flex; background-color: rgba(0, 0, 0, 0.3); border-radius: 12px; padding: 8px; border: 3px solid transparent; z-index: 20; box-sizing: border-box;}
+        .active-player { border-color: #ffeb3b; box-shadow: 0 0 20px rgba(255, 235, 59, 0.5); background-color: rgba(255, 235, 59, 0.15); z-index: 30;}
+        .targetable { cursor: pointer; animation: pulse-target 1s infinite; z-index: 30;} 
+        @keyframes pulse-target { 0% { border-color: #e91e63; box-shadow: 0 0 10px #e91e63; } 50% { border-color: #ff4081; box-shadow: 0 0 25px #ff4081; } 100% { border-color: #e91e63; box-shadow: 0 0 10px #e91e63; } } 
+        .targetable:hover { background-color: rgba(233, 30, 99, 0.2); }
+        
+        .hand-area { display: flex; flex-wrap: wrap; gap: 4px; min-width: 80px; min-height: 100px; pointer-events: none; justify-content: center; align-content: flex-start; flex-grow: 1;} 
+        .hand-area .card { pointer-events: auto; } 
+
+        .bond-area { 
+            display: flex; gap: 6px; min-width: 50px; border: 2px dashed rgba(255, 215, 0, 0.3); 
+            background-color: rgba(255, 215, 0, 0.05); border-radius: 8px; padding: 4px 6px; 
+            align-items: center; justify-content: flex-start; color: rgba(255,255,255,0.4); 
+            font-size: 11px; flex-wrap: nowrap; pointer-events: auto;
+            overflow-x: auto; overflow-y: hidden;
+            scrollbar-width: none; -ms-overflow-style: none;
+        }
+        .bond-area::-webkit-scrollbar { display: none; }
+
+        #player-1 .bond-area, #player-3 .bond-area {
+            flex-direction: column; overflow-x: hidden; overflow-y: auto; justify-content: flex-start;
+        }
+
+        .bond-group { display: flex; flex-direction: column; align-items: center; background: rgba(0,0,0,0.65); border-radius: 6px; padding: 3px; border: 1px solid #555; position: relative; pointer-events: auto; flex-shrink: 0;}
+        .bond-title { font-size: 9px; font-weight: bold; color: white; padding: 1px 5px; border-radius: 3px; margin-bottom: -5px; z-index: 10; box-shadow: 0 2px 4px rgba(0,0,0,0.8); text-shadow: 1px 1px 2px black; white-space: nowrap;}
+        .bond-cards-container { display: flex; flex-direction: row; padding-top: 6px; }
+        .bond-card { width: 26px; height: 38px; font-size: 8px; margin-left: -10px; cursor: default; }
+        .bond-card:first-child { margin-left: 0; }
+        .bond-group:hover .bond-card { margin-left: 1px; }
+
+        #player-0 { bottom: 5px; left: 50%; transform: translateX(-50%); flex-direction: row; width: auto; max-width: 88vw; max-height: 25vh;} 
+        #player-0 .bond-area { margin-left: 12px; max-width: 32vw; max-height: 98px;} 
+        #player-2 { top: 5px; left: 50%; transform: translateX(-50%); flex-direction: row-reverse; width: auto; max-width: 88vw; max-height: 25vh;} 
+        #player-2 .bond-area { margin-right: 12px; max-width: 32vw; max-height: 98px;} 
+        #player-1 { left: 5px; top: 50%; transform: translateY(-50%); flex-direction: column; height: auto; max-height: 85vh; width: auto; max-width: 22vw; } 
+        #player-1 .bond-area { margin-top: 8px; max-height: 160px; width: 100%;} 
+        #player-3 { right: 5px; top: 50%; transform: translateY(-50%); flex-direction: column-reverse; height: auto; max-height: 85vh; width: auto; max-width: 22vw; } 
+        #player-3 .bond-area { margin-bottom: 8px; max-height: 160px; width: 100%;}
+        
+        .status-panel { position: absolute; display: flex; gap: 4px; flex-wrap: wrap; pointer-events: none; z-index: 50; } 
+        #player-0 .status-panel { top: -25px; right: 0; justify-content: flex-end; } 
+        #player-1 .status-panel { top: -25px; right: 0; justify-content: flex-end; } 
+        #player-2 .status-panel { bottom: -25px; right: 0; justify-content: flex-end; } 
+        #player-3 .status-panel { top: -25px; left: 0; justify-content: flex-start; }
+        .status-tag { background: rgba(0,0,0,0.85); border: 1px solid #777; color: #fff; font-size: 11px; padding: 2px 6px; border-radius: 4px; white-space: nowrap; box-shadow: 0 2px 4px rgba(0,0,0,0.5); font-weight: bold;} 
+        .status-tag.negative { border-color: #f44336; color: #ffcdd2; } .status-tag.positive { border-color: #4caf50; color: #c8e6c9; } .status-tag.extra { border-color: #00e5ff; color: #e0f7fa; } .status-tag.love { border-color: #e91e63; color: #ff80ab; }
+        
+        .card { 
+            background-color: #444; color: white; width: 68px; height: 96px; border-radius: 6px; 
+            display: flex; flex-direction: column; justify-content: flex-end; align-items: center; 
+            font-weight: bold; font-size: 12px; text-align: center; box-shadow: inset 0 -30px 20px -10px rgba(0,0,0,0.85), 2px 2px 5px rgba(0,0,0,0.5); 
+            cursor: pointer; border: 2px solid transparent; user-select: none;
+            position: relative; padding-bottom: 5px; box-sizing: border-box; background-size: cover; background-position: center; 
+            background-repeat: no-repeat; text-shadow: 1px 1px 2px black, 0 0 5px black;
+        } 
+        .hand-area .card:hover { transform: translateY(-8px) scale(1.04); border-color: #ffeb3b; z-index: 100; box-shadow: inset 0 -35px 20px -10px rgba(0,0,0,0.85), 0 10px 20px rgba(0,0,0,0.8);} 
+        .tag-container { position: absolute; top: 2px; left: 2px; right: 2px; display: flex; flex-wrap: wrap; gap: 2px; justify-content: flex-start; z-index: 5;} 
+        .f-tag { width: 15px; height: 15px; display: flex; justify-content: center; align-items: center; font-size: 9px; color: white; font-weight: 900; text-shadow: 1px 1px 1px rgba(0,0,0,0.8); }
+        
+        .card.card-back {
+            background: linear-gradient(135deg, #1b5e20 0%, #0d3814 100%);
+            border: 2px solid #2e7d32;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 2px 2px 4px rgba(0,0,0,0.5);
+            cursor: default;
+        }
+        .card.card-back::after {
+            content: ""; position: absolute; top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 1px dashed rgba(255,255,255,0.15); border-radius: 4px;
+        }
+        .card.card-back:hover { transform: none !important; border-color: #2e7d32 !important; box-shadow: inset 0 0 10px rgba(0,0,0,0.8), 2px 2px 4px rgba(0,0,0,0.5) !important; }
+
+        .card.card-revealed {
+            border: 2px solid #00e5ff !important;
+            box-shadow: 0 0 10px rgba(0, 229, 255, 0.8), inset 0 -30px 20px -10px rgba(0,0,0,0.85) !important;
+            cursor: default;
+        }
+        .card-revealed-tag {
+            position: absolute; top: 2px; right: 2px; background: rgba(0, 229, 255, 0.85); color: #000;
+            font-size: 8px; font-weight: 900; padding: 1px 3px; border-radius: 3px; z-index: 10;
+        }
+
+        .mini-card { width: 32px; height: 46px; font-size: 9px; cursor: default; justify-content: flex-end; padding-bottom: 2px; box-shadow: inset 0 -15px 10px -5px rgba(0,0,0,0.85); margin: 1px;} 
+        .mini-card .tag-container { display: none; } 
+        .mini-card:hover { transform: none; border-color: transparent; }
+
+        .card-gold { border: 2px solid #ffd700; box-shadow: inset 0 -30px 20px -10px rgba(0,0,0,0.85), 0 0 8px #ffd700; color: #ffd700; } 
+        .card-selected { transform: translateY(-12px) scale(1.05) !important; border: 3px solid #e91e63; box-shadow: inset 0 -30px 20px -10px rgba(0,0,0,0.85), 0 0 15px #e91e63; z-index: 50 !important;} 
+        @keyframes pulse-hint { 0% { box-shadow: 0 0 5px #4caf50; border-color: #4caf50; } 50% { box-shadow: 0 0 20px #81c784; border-color: #81c784; } 100% { box-shadow: 0 0 5px #4caf50; border-color: #4caf50; } } 
+        .card-hint { animation: pulse-hint 1.5s infinite; border: 3px solid #4caf50; z-index: 5; } 
+        .unskippable { border: 3px solid #f44336; box-shadow: inset 0 -30px 20px -10px rgba(0,0,0,0.85), 0 0 10px #f44336; } 
+        .win-text { color: #ffd700; font-size: 24px; font-weight: bold; text-shadow: 0 0 10px #ff9800; margin-bottom: 10px;} 
+        .area-title { font-size: 13px; position: absolute; font-weight: bold; color: white; pointer-events: none;}
+        
+        .card-tooltip { visibility: hidden; position: absolute; bottom: 110px; left: 50%; transform: translateX(-50%); width: 300px; background-color: rgba(20, 20, 20, 0.95); color: #ddd; text-align: left; padding: 10px 12px; border-radius: 8px; border: 1px solid #e91e63; z-index: 9999; font-size: 12px; font-weight: normal; line-height: 1.5; opacity: 0; pointer-events: none; box-shadow: 0 5px 20px rgba(0,0,0,0.9); text-shadow: none;} 
+        .card:hover .card-tooltip { visibility: visible; opacity: 1; } 
+        .card-tooltip::after { content: ""; position: absolute; top: 100%; left: 50%; margin-left: -6px; border-width: 6px; border-style: solid; border-color: #e91e63 transparent transparent transparent; } 
+        .tooltip-title { color: #ffeb3b; font-weight: bold; font-size: 14px; border-bottom: 1px solid #555; padding-bottom: 4px; margin-bottom: 6px; text-align: center;} 
+        .tooltip-item { margin-bottom: 5px; } 
+        #player-2 .card-tooltip { bottom: auto; top: 110px; } 
+        #player-2 .card-tooltip::after { top: auto; bottom: 100%; border-color: transparent transparent #e91e63 transparent; }
+        
+        .river .card { width: 35px; height: 49px; font-size: 9px; margin: 1px; border: 1px solid rgba(255,255,255,0.2); }
+        .river .card .tag-container { transform: scale(0.5); transform-origin: top left; }
+        .river .card:hover { transform: none; box-shadow: inset 0 -15px 10px -5px rgba(0,0,0,0.85); border-color: rgba(255,255,255,0.2); z-index: 1; }
+        .river .card .card-tooltip { display: none !important; }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+        .floating-text { position: absolute; font-size: 20px; font-weight: 900; text-shadow: 0 0 5px black, 2px 2px 2px black; pointer-events: none; z-index: 1000; animation: floatUp 1.2s ease-out forwards; }
+        @keyframes floatUp { 0% { opacity: 0; transform: translateY(10px) scale(0.8); } 15% { opacity: 1; transform: translateY(0px) scale(1.1); } 100% { opacity: 0; transform: translateY(-35px) scale(1); } }
+        @keyframes shake-hard { 0% { transform: translate(2px, 2px) rotate(0deg); } 10% { transform: translate(-2px, -3px) rotate(-1deg); } 20% { transform: translate(-4px, 0px) rotate(1deg); } 30% { transform: translate(4px, 3px) rotate(0deg); } 40% { transform: translate(2px, -2px) rotate(1deg); } 50% { transform: translate(-2px, 3px) rotate(-1deg); } 60% { transform: translate(-4px, 2px) rotate(0deg); } 70% { transform: translate(4px, 2px) rotate(-1deg); } 80% { transform: translate(-2px, -2px) rotate(1deg); } 90% { transform: translate(2px, 3px) rotate(0deg); } 100% { transform: translate(2px, -3px) rotate(-1deg); } }
+        .shake-hard { animation: shake-hard 0.3s cubic-bezier(.36,.07,.19,.97) both; }
+        .flash-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: white; opacity: 0; pointer-events: none; z-index: 9999; }
+        .flash-anim { animation: flashEffect 0.3s ease-out; } @keyframes flashEffect { 0% { opacity: 0.9; } 100% { opacity: 0; } }
+        
+        .splash-text { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); font-size: 110px; font-weight: 900; color: #ffeb3b; text-shadow: 0 0 30px #e91e63, 5px 5px 0 #000; z-index: 9999; pointer-events: none; opacity: 0; }
+        .anim-splash { animation: splashAnim 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        @keyframes splashAnim { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 15% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; } 80% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0; } }
+
+        .target-pick-btn { background: linear-gradient(135deg, #e91e63, #c2185b); color: white; border: 2px solid #fff; padding: 12px 24px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; margin: 6px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .target-pick-btn:hover { background: linear-gradient(135deg, #ff4081, #d81b60); transform: scale(1.05); }
+    </style>
+</head>
+<body>
+    <div id="flash-overlay" class="flash-overlay"></div>
+    <div id="splash-text" class="splash-text"></div>
+
+    <div id="main-menu-screen" class="screen" style="display: flex;">
+        <div class="game-title">四班抽象之奕</div>
+        <button class="menu-btn" onclick="startGame()">▶ 开始对局</button>
+        <div class="settings-panel">
+            <label>🔊 游戏音量: <span id="vol-text">100%</span></label>
+            <input type="range" class="volume-slider" id="volume-slider" min="0" max="1" step="0.05" value="1" oninput="changeVolume(this.value)">
+        </div>
+    </div>
+    <div id="game-screen" class="screen" style="display: none;">
+        <div id="top-bar">
+            <button class="top-btn log-btn" onclick="exportDebugLog()">📥 导出调试日志</button>
+            <button class="top-btn" onclick="openDeckModal()">👀 查看剩余牌库</button>
+            <button class="top-btn" onclick="openGlossary()">📖 阵营羁绊图鉴</button>
+        </div>
+        <div id="bond-log-area"><h3 id="bond-log-title">📜 全场播报 (按住拖动)</h3><div id="bond-log-content"><div style="color:#777; text-align:center; margin-top:20px;">暂无羁绊触发</div></div></div>
+        <div id="glossary-modal" class="modal-overlay"><div class="modal-content"><button class="modal-close" onclick="closeModal('glossary-modal')">关闭 X</button><h2 style="text-align: center; margin-top: 0; color: #ffeb3b;">阵营羁绊图鉴</h2><div id="glossary-list"></div></div></div>
+        <div id="deck-modal" class="modal-overlay"><div class="modal-content"><button class="modal-close" onclick="closeModal('deck-modal')">关闭 X</button><h2 style="text-align: center; margin-top: 0; color: #ffeb3b;">剩余牌库透视</h2><div id="deck-grid"></div></div></div>
+        
+        <div id="target-select-modal" class="modal-overlay">
+            <div class="modal-content" style="text-align:center; max-width:460px;">
+                <h2 id="target-modal-title" style="margin-top: 0; color: #ffeb3b;">选择目标玩家</h2>
+                <p id="target-modal-desc" style="color:#ddd; font-weight:bold;"></p>
+                <div id="target-buttons-wrap" style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;"></div>
+            </div>
+        </div>
+
+        <div id="hat-choice-modal" class="modal-overlay">
+            <div class="modal-content" style="text-align:center; max-width:400px;">
+                <h2 style="margin-top: 0; color: #ffeb3b;">针织帽组合打出</h2>
+                <p style="color:#ddd; font-size:14px; line-height: 1.6;">你打出了【徐翱的针织帽】，检测到手中有【徐翱】！<br>是否选择合体？合体后共算一张牌，吃碰者陷入一回合睡眠！</p>
+                <div style="display:flex; justify-content:center; gap:15px; margin-top:20px;">
+                    <button class="action-btn confirm" style="display:inline-block;" onclick="confirmHatCombo(true)">合体打出！</button>
+                    <button class="action-btn pass" style="display:inline-block;" onclick="confirmHatCombo(false)">单独打出</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="player-1" class="player-area" onclick="selectTargetPlayer(1)"><div class="area-title" style="top:-25px; left:0;">对手 1 (左)</div><div class="hand-area" id="hand-1"></div><div class="bond-area" id="bond-1">副露区</div><div class="status-panel" id="status-1"></div></div>
+        <div id="player-2" class="player-area" onclick="selectTargetPlayer(2)"><div class="area-title" style="bottom:-25px; left:0;">对手 2 (上)</div><div class="hand-area" id="hand-2"></div><div class="bond-area" id="bond-2">副露区</div><div class="status-panel" id="status-2"></div></div>
+        <div id="player-3" class="player-area" onclick="selectTargetPlayer(3)"><div class="area-title" style="top:-25px; right:0;">对手 3 (右)</div><div class="hand-area" id="hand-3"></div><div class="bond-area" id="bond-3">副露区</div><div class="status-panel" id="status-3"></div></div>
+        <div id="player-0" class="player-area" onclick="selectTargetPlayer(0)"><div class="area-title" style="top:-25px; left:0;">我的区域 (下)</div><div class="hand-area" id="hand-0"></div><div class="bond-area" id="bond-0">副露区</div><div class="status-panel" id="status-0"></div></div>
+        
+        <div id="center-board">
+            <div id="river-2" class="river"></div><div id="river-3" class="river"></div><div id="river-1" class="river"></div><div id="river-0" class="river"></div>
+            <div id="center-info">
+                <h3 id="deckCount" style="margin: 0 0 5px 0;">牌库: 88</h3>
+                <div id="action-panel">
+                    <div id="action-text">提示文字</div>
+                    <div id="pending-card-display"></div>
+                    <div id="pending-card-hint"></div>
+                    <div id="action-buttons">
+                        <button id="btn-chi" class="action-btn" onclick="btnChi()">吃 (关系)</button>
+                        <button id="btn-peng" class="action-btn" onclick="btnPeng()">碰 (阵营)</button>
+                        <button id="btn-confirm" class="action-btn confirm" onclick="confirmPeng()">确认碰</button>
+                        <button id="btn-pass" class="action-btn pass" onclick="btnPass()">过</button>
+                        
+                        <button id="btn-interrupt" class="action-btn interrupt" onclick="confirmInterrupt()">🤡 截断施法！</button>
+                        <button id="btn-pass-interrupt" class="action-btn pass" onclick="passInterrupt()">放弃</button>
+
+                        <button id="btn-restart" class="action-btn restart" onclick="resetGame()">🔄 重新开始本局</button>
+                        <button id="btn-menu" class="action-btn menu" onclick="returnToMenu()">🏠 返回主菜单</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let debugLogBuffer = [];
+        function logTrace(module, action, details = {}) {
+            let now = new Date();
+            let timestamp = now.toTimeString().split(' ')[0] + '.' + String(now.getMilliseconds()).padStart(3, '0');
+            let line = `[${timestamp}] [${module.toUpperCase()}] ${action} | State: ${gameState} | Turn: ${turn} | Data: ${JSON.stringify(details)}`;
+            debugLogBuffer.push(line);
+            console.log(line);
+        }
+
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            logTrace("FATAL_ERROR", msg, { lineNo, columnNo, stack: error ? error.stack : "" });
+            return false;
+        };
+
+        // 🌟 严格核验卡牌守恒状态
+        function auditCardCounts() {
+            let counts = {};
+            for(let c of deck) counts[c] = (counts[c]||0) + 1;
+            for(let p=0; p<4; p++) {
+                for(let c of players[p].hand) counts[c] = (counts[c]||0) + 1;
+                for(let c of players[p].discards) counts[c] = (counts[c]||0) + 1;
+                for(let b of players[p].bonds) {
+                    for(let c of b.cards) counts[c] = (counts[c]||0) + 1;
+                }
+            }
+            if(pendingCardInfo && pendingCardInfo.card) {
+                counts[pendingCardInfo.card] = (counts[pendingCardInfo.card]||0) + 1;
+            }
+            let violations = {};
+            for(let name in counts) {
+                if(counts[name] > 4) violations[name] = counts[name];
+            }
+            if(Object.keys(violations).length > 0) {
+                logTrace("AUDIT_VIOLATION", "Card count exceeded 4!", violations);
+            }
+            return counts;
+        }
+
+        async function exportDebugLog() {
+            auditCardCounts();
+            let content = "=== 四班抽象之奕 运行调试日志 (Debug Trace) ===\n";
+            content += `导出时间: ${new Date().toLocaleString()}\n`;
+            content += `当前牌局状态: State=${gameState}, Turn=${turn}, 剩余牌数=${deck.length}\n`;
+            content += "---------------------------------------------------------\n";
+            content += debugLogBuffer.join("\n");
+            content += "\n=== 牌局各玩家手牌状态 ===\n";
+            for(let i=0; i<4; i++) {
+                content += `玩家 ${i}: 手牌[${players[i].hand.join(', ')}] | 明牌[${players[i].revealedCards.join(', ')}] | 副露[${players[i].bonds.map(b=>b.name).join(', ')}] | Buffs[${JSON.stringify(buffs[i])}]\n`;
+            }
+
+            if (window.showSaveFilePicker) {
+                try {
+                    const handle = await window.showSaveFilePicker({
+                        suggestedName: 'game_debug.log',
+                        types: [{ description: 'Log Files', accept: { 'text/plain': ['.log', '.txt'] } }]
+                    });
+                    const writable = await handle.createWritable();
+                    await writable.write(content);
+                    await writable.close();
+                    showFloatingText(HUMAN_PLAYER, "📁 日志已保存到同级目录", "#4caf50");
+                    return;
+                } catch (e) {
+                    if (e.name !== 'AbortError') console.warn("Picker save fallback", e);
+                    else return;
+                }
+            }
+
+            let blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+            let url = URL.createObjectURL(blob);
+            let a = document.createElement("a");
+            let d = new Date();
+            let dateStr = d.toISOString().replace(/[-:T]/g, '').slice(0, 14);
+            a.href = url;
+            a.download = `game_debug_${dateStr}.log`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showFloatingText(HUMAN_PLAYER, "📥 日志文件已生成导出", "#4caf50");
+        }
+
+        let globalVolume = 1.0;
+        const AUDIO_MAP = { "draw": "", "play": "", "chi": "", "peng": "", "win": "", "epic_win": "", "susu": "", "mama": "", "lol": "", "timi": "", "duel": "", "clown": "", "sleep": "", "shield": "", "jail": "", "trap": "", "combo": "", "ora": "", "steal": "" };
+        function changeVolume(val) { globalVolume = parseFloat(val); document.getElementById('vol-text').innerText = Math.round(globalVolume * 100) + '%'; playSound("play"); }
+        function playSound(key) { if(AUDIO_MAP[key] && AUDIO_MAP[key] !== "") { let audio = new Audio(AUDIO_MAP[key]); audio.volume = globalVolume; audio.play().catch(e => {}); } }
+        function startGame() { 
+            logTrace("system", "startGame", {});
+            document.getElementById('main-menu-screen').style.display = 'none'; 
+            document.getElementById('game-screen').style.display = 'block'; 
+            resetGame(); 
+        }
+        function returnToMenu() { 
+            logTrace("system", "returnToMenu", {});
+            gameState = "MENU"; 
+            document.getElementById('game-screen').style.display = 'none'; 
+            document.getElementById('main-menu-screen').style.display = 'flex'; 
+        }
+        
+        function triggerScreenShake() { document.body.classList.remove('shake-hard'); void document.body.offsetWidth; document.body.classList.add('shake-hard'); setTimeout(() => document.body.classList.remove('shake-hard'), 300); }
+        function triggerFlash() { let overlay = document.getElementById('flash-overlay'); overlay.classList.remove('flash-anim'); void overlay.offsetWidth; overlay.classList.add('flash-anim'); }
+        function showFloatingText(pIdx, text, color = "#ffeb3b") { let pDiv = document.getElementById(`player-${pIdx}`); let ft = document.createElement('div'); ft.className = 'floating-text'; ft.style.color = color; ft.innerHTML = text; ft.style.left = `calc(50% + ${(Math.random() - 0.5) * 60}px)`; ft.style.top = '-20px'; pDiv.appendChild(ft); setTimeout(() => ft.remove(), 1200); }
+        function showSplash(text, color = "#ffeb3b") { let el = document.getElementById("splash-text"); el.innerHTML = text; el.style.color = color; el.classList.remove("anim-splash"); void el.offsetWidth; el.classList.add("anim-splash"); }
+
+        const logArea = document.getElementById('bond-log-area'); const logTitle = document.getElementById('bond-log-title'); let isDragging = false; let dragOffsetX, dragOffsetY; logTitle.addEventListener('mousedown', (e) => { isDragging = true; dragOffsetX = e.clientX - logArea.offsetLeft; dragOffsetY = e.clientY - logArea.offsetTop; }); document.addEventListener('mousemove', (e) => { if (!isDragging) return; logArea.style.left = Math.max(0, Math.min(e.clientX - dragOffsetX, window.innerWidth - logArea.offsetWidth)) + 'px'; logArea.style.top = Math.max(0, Math.min(e.clientY - dragOffsetY, window.innerHeight - logArea.offsetHeight)) + 'px'; }); document.addEventListener('mouseup', () => { isDragging = false; }); function closeModal(id) { document.getElementById(id).style.display = "none"; }
+
+        const FACTION_INFO = {
+            "强盛集团": { req: 3, shape: "polygon(50% 0%, 0% 100%, 100% 100%)", color: "#e53935", text: "强", desc: "抽取一张牌，并额外打出一张牌，该额外牌不可被吃碰。" },
+            "三小只": { req: 3, shape: "polygon(50% 0%, 0% 100%, 100% 100%)", color: "#e91e63", text: "三", desc: "所有人随机选择一张手牌，按顺时针传递给下家。" },
+            "酥酥软软": { req: 3, shape: "polygon(0% 0%, 100% 0%, 50% 100%)", color: "#03a9f4", text: "酥", desc: "播放：“再加上你那酥酥软软的声音...”" },
+            "增重计划": { req: 4, shape: "polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)", color: "#ff9800", text: "增", desc: "指定一人下回合抽卡时额外抽取一张。" },
+            "启动·英雄联盟": { req: 5, shape: "polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)", color: "#2196f3", text: "英", desc: "展示手牌并随机白嫖发动一个基础阵营羁绊。" },
+            "启动·王者荣耀": { req: 5, shape: "polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)", color: "#ffc107", text: "王", desc: "发动上一个场上发动过的羁绊。" },
+            "梦之队·一队": { req: 5, shape: "polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)", color: "#9c27b0", text: "梦", desc: "决斗：若对手手牌比自己少，则送出一张牌。" },
+            "梦之队·二队": { req: 5, shape: "polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%)", color: "#00bcd4", text: "梦", desc: "决斗：若对手手牌比自己多，则送出一张牌。" },
+            "卷王二人组": { req: 2, shape: "circle(50% at 50% 50%)", color: "#4caf50", text: "卷", desc: "额外进行一次抽卡，但不打出。" },
+            "南模天团": { req: 4, shape: "polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%)", color: "#673ab7", text: "南", desc: "发动后一圈（4回合）内禁止所有人吃碰。" },
+            "小丑二人组": { req: 2, shape: "circle(50% at 50% 50%)", color: "#607d8b", text: "丑", desc: "【特殊反制】当别人吃牌时，若手中有【徐翱+安以文】或【曾灏铭+刘嘉祺】，可截断对方羁绊，并强塞给对方一张牌。" }
+        };
+        const RELATION_EFFECTS = { 
+            "曾灏铭-刘嘉祺": "【最熟悉的陌生人】发动一次已发动过的羁绊。",
+            "徐翱-安以文": "【半段】若手中牌未打出一半(>=5)，可额外连打一张。",
+            "徐翱-李奕潼": "【数学王者】若双方手牌均为质数，各自可额外连打一张牌。",
+            "朱喆宇-孙佳煜": "【完美镜头】暂停下家一回合行动。",
+            "刘子豪-安以文": "【妈妈】令全场高呼妈妈并各抽一张牌。",
+            "顾嘉誉-郑昕玮": "【坐骑形态】发动者进入坐骑形态，下回合无法抽卡。",
+            "杨嘉毅-郑昕玮": "【坐骑形态】发动者进入坐骑形态，下回合无法抽卡。",
+            "单冯烨-刘嘉祺": "【姐姐】随机抽取对方一张卡与自己交换。",
+            "张浩泉-张浩泉": "【超导战士】疯狂抽打3次，但暂停下2个回合。",
+            "曾灏铭-曾灏铭": "【孤独的二次元】自己与自己产生羁绊。",
+            "界曾灏铭-界曾灏铭": "【孤独的二次元】自己与自己产生羁绊。",
+            "徐翱的针织帽-徐翱": "【助眠神器】与徐翱合体打出，吃碰此牌者将沉睡一回合！" 
+        };
+        function getRelationDesc(card1, card2) { let key1 = `${card1}-${card2}`; let key2 = `${card2}-${card1}`; return RELATION_EFFECTS[key1] || RELATION_EFFECTS[key2] || "触发特殊效果"; }
+
+        const CARD_DB = {
+            "曾灏铭": { img: "images/zhm.png", factions: ["强盛集团", "增重计划", "启动·王者荣耀", "启动·英雄联盟", "小丑二人组"], relations: ["刘嘉祺", "徐翱", "曾灏铭"] },
+            "徐翱": { img: "images/xa.png", factions: ["强盛集团", "梦之队·二队", "启动·王者荣耀", "启动·英雄联盟", "小丑二人组", "酥酥软软"], relations: ["安以文", "曾灏铭", "李奕潼", "徐翱的针织帽"] },
+            "安以文": { img: "images/ayw.png", factions: ["三小只", "小丑二人组"], relations: ["徐翱", "刘子豪"] },
+            "刘嘉祺": { img: "images/ljq.png", factions: ["三小只", "小丑二人组"], relations: ["单冯烨", "曾灏铭"] },
+            "李奕潼": { img: "images/lyt.png", factions: ["强盛集团", "梦之队·二队", "启动·王者荣耀"], relations: ["徐翱"] }, 
+            "朱喆宇": { img: "images/zzy.png", factions: ["酥酥软软", "强盛集团", "梦之队·一队", "启动·英雄联盟"], relations: ["孙佳煜"] }, 
+            "刘子豪": { img: "images/lzh.png", factions: ["酥酥软软", "强盛集团", "启动·英雄联盟"], relations: ["安以文"] }, 
+            "侯俊贤": { img: "images/hjx.png", factions: ["酥酥软软", "强盛集团", "启动·英雄联盟", "梦之队·一队"], relations: [] }, 
+            "顾嘉誉": { img: "images/gjy.png", factions: ["酥酥软软", "梦之队·一队"], relations: ["郑昕玮"] }, 
+            "杨嘉毅": { img: "images/yjy.png", factions: ["卷王二人组"], relations: ["郑昕玮"] }, 
+            "郑昕玮": { img: "images/zxw.png", factions: ["酥酥软软", "梦之队·一队"], relations: ["杨嘉毅", "顾嘉誉"] }, 
+            "单冯烨": { img: "images/sfy.png", factions: ["酥酥软软", "梦之队·二队", "启动·王者荣耀"], relations: ["刘嘉祺"] }, 
+            "孙佳煜": { img: "images/sjy.png", factions: ["三小只"], relations: ["朱喆宇"] }, 
+            "戴宇豪": { img: "images/dyh.png", factions: ["增重计划", "梦之队·二队"], relations: [] }, 
+            "张浩泉": { img: "images/zhq.png", factions: ["增重计划", "卷王二人组", "酥酥软软"], relations: ["张浩泉"] }, 
+            "顾忻乐": { img: "images/gxl.png", factions: ["增重计划", "启动·王者荣耀"], relations: [] }, 
+            "沈鑫浩": { img: "images/sxh.png", factions: ["梦之队·一队"], relations: [] }, 
+            "彭籽稼": { img: "images/pzj.png", factions: ["梦之队·二队"], relations: [], onPlayDesc: "【八封情书】手牌恰好8张时发动(不含此牌)，8回合内每回合送1张牌，任一方出羁绊则解除。" }, 
+            "屠明修": { img: "images/tmx.png", factions: ["酥酥软软", "强盛集团", "启动·英雄联盟", "启动·王者荣耀"], relations: [] }, 
+            "刘鸿铭": { img: "images/lhm.png", factions: ["宝牌"], relations: [], isWildcard: true, onPlayDesc: "【侍奉之心】全场摸1张牌，并按顺时针追加一回合！(追加回合不可吃碰且打出的牌效果失效)" }, 
+            "周晓培": { img: "images/zxp.png", factions: ["宝牌"], relations: [], isWildcard: true, onPlayDesc: "【圣诞天使】全场按顺时针追加一回合！(追加回合不可吃碰且打出的牌效果失效)" }, 
+            "界刘嘉祺": { img: "images/jljq.png", factions: ["三小只"], relations: [], onPlayDesc: "【哑婆婆】打出时直接明牌显示任意一人两张手牌。" }, 
+            "界曾灏铭": { img: "images/jzhm.png", factions: ["增重计划", "启动·王者荣耀", "小丑二人组"], relations: ["界曾灏铭"], onPlayDesc: "【铁窗泪】打出时选择目标，双方均停止一回合行动。" }, 
+            "界彭籽稼": { img: "images/jpzj.png", factions: ["酥酥软软", "梦之队·二队"], relations: [], onPlayDesc: "【讲文明树新风】打出时获得免疫一次负面效果的护盾。" }, 
+            "范文豪": { img: "images/fwh.png", factions: ["南模天团"], relations: [], onPlayDesc: "【骗人题】打出后布置陷阱，下个吃碰此牌的人将被反制。" }, 
+            "王齐岳": { img: "images/wqy.png", factions: ["强盛集团"], relations: [], onPlayDesc: "【篮球健将】打出时随机抢夺手牌最多的玩家一张牌。" }, 
+            "温秦富": { img: "images/wqf.png", factions: ["南模天团"], relations: [], onPlayDesc: "【停止哥】若此牌被吃碰，吃碰者跳过下一回合。" }, 
+            "夏运": { img: "images/xy.png", factions: ["南模天团"], relations: [], onPlayDesc: "【你想想就知道】嘲讽下家，其下回合只能吃碰，不能出牌。" }, 
+            "唐洋": { img: "images/ty.png", factions: ["南模天团"], relations: [], onPlayDesc: "【愿者上钩】打出后一圈内若被吃碰，吃碰者额外抽一张牌。" }, 
+            "王歆昊": { img: "images/wxh.png", factions: ["宝牌"], relations: [], isWildcard: true, onPlayDesc: "【圣诞礼物】所有人从弃牌堆随机捞一张牌。" }, 
+            "徐翱的针织帽": { img: "images/xadzzm.png", factions: [], relations: ["徐翱"], onPlayDesc: "【助眠神器】打出时可与徐翱合体，吃碰者沉睡一回合！" }
+        };
+
+        const HUMAN_PLAYER = 0; 
+        let deck = []; 
+        let players = Array(4).fill().map(()=>({hand:[], bonds:[], discards:[], revealedCards:[]}));
+        let buffs = Array(4).fill().map(()=>({extraDraw:0, skipTurnCount:0, cannotDraw:false, extraPlay:0, onlyChiPengTurns:0, fishHookTurns:0, immune:false, trap:false, loveLetter:null}));
+        let globalBuffs = { noChiPengTurns: 0 };
+        let lastActivatedBond = null; let unskippableNextCard = false; let targetSelectionCallback = null; 
+        let turn = 0; let gameState = "MENU"; 
+        let isCurrentTurnExtra = false;
+
+        let pendingCardInfo = { card: null, fromPlayer: -1, isUnskippable: false, isTrap: false, isStop: false, isHook: false, isHatCombo: false }; 
+        let selectedCardsForPeng = []; let currentCanChi = false; let currentCanPeng = false; let isFirstLog = true; 
+        let extraTurnQueue = []; let returnTurnAfterExtra = null; 
+        
+        let pendingHatPlay = null;
+        let interruptState = null;
+
+        function isAI(p) { return p !== HUMAN_PLAYER; }
+        function isPrime(num) { if(num<=1) return false; if(num<=3) return true; if(num%2===0||num%3===0) return false; for(let i=5; i*i<=num; i+=6) { if(num%i===0||num%(i+2)===0) return false; } return true; }
+        
+        function addBondLog(p, type, title, desc, action) {
+            logTrace("bond", `${title} by P${p}`, { type, desc, action });
+            let lc = document.getElementById("bond-log-content"); if(isFirstLog) { lc.innerHTML = ""; isFirstLog = false; } 
+            let c = type==="relation"?"relation":type==="faction"?"faction":type==="onplay"?"onplay":"system";
+            let t = type==="relation"?"✨ 关系":type==="faction"?"🔥 阵营":type==="onplay"?"🃏 打出":"⚙️ 系统";
+            let entry = document.createElement("div"); entry.className = `log-entry ${c}`;
+            entry.innerHTML = `<div class="log-header">${t} - 玩家 ${p} ${isAI(p)?'(电脑)':''}</div><div style="color:#fff; font-weight:bold; margin-bottom:2px;">【${title}】</div><div class="log-desc">${desc}</div><div class="log-action">${action}</div>`;
+            lc.appendChild(entry); lc.scrollTop = lc.scrollHeight;
+        }
+
+        function applyNegativeEffect(t, name, fn) {
+            if(buffs[t].immune) { 
+                buffs[t].immune = false; playSound("shield"); 
+                addBondLog(t, "system", "免疫生效", `抵挡了【${name}】`, "护盾破裂！"); 
+                showFloatingText(t, "🛡️ 免疫!", "#00bcd4"); updateUI(); return false; 
+            } else { 
+                fn(); return true; 
+            }
+        }
+
+        function checkAndBreakLoveLetterOnBond(bondedP) {
+            for(let i=0; i<4; i++) {
+                if(buffs[i].loveLetter) {
+                    let sender = i;
+                    let target = buffs[i].loveLetter.target;
+                    if(bondedP === sender || bondedP === target) {
+                        logTrace("love", "LoveLetter broken by bond", { sender, target, brokenBy: bondedP });
+                        buffs[sender].loveLetter = null;
+                        showFloatingText(sender, "💔 情书契约解除!", "#ff4081");
+                        showFloatingText(target, "💔 情书解除!", "#ff4081");
+                        addBondLog(bondedP, "system", "情书梦醒", "由于一方发动了羁绊", "【八封情书】攻势提前终止解除！");
+                    }
+                }
+            }
+        }
+
+        function initGlossary() { let list = document.getElementById("glossary-list"); list.innerHTML = ""; for(let f in FACTION_INFO) { let info = FACTION_INFO[f]; list.innerHTML += `<div class="glossary-item"><div class="glossary-icon-wrap"><div class="f-tag" style="background-color: ${info.color}; clip-path: ${info.shape};">${info.text}</div></div><div class="glossary-text"><h4>${f} (${info.req}人)</h4><p>${info.desc}</p></div></div>`; } }
+        function openGlossary() { document.getElementById("glossary-modal").style.display = "flex"; }
+        
+        function openDeckModal() { 
+            let grid = document.getElementById("deck-grid"); grid.innerHTML = ""; 
+            let counts = {}; 
+            for(let c of deck) counts[c] = (counts[c]||0)+1; 
+            for(let name in CARD_DB) { 
+                let c = document.createElement("div"); 
+                c.className = "deck-item"; 
+                if(CARD_DB[name].isWildcard) c.style.border = "2px solid #ffd700"; 
+                let r = counts[name]||0; 
+                if(r===0) c.style.opacity="0.3"; 
+                let tc = document.createElement("div"); 
+                tc.className = "tag-container"; 
+                if(CARD_DB[name].factions && !CARD_DB[name].isWildcard) { 
+                    for(let f of CARD_DB[name].factions) { 
+                        let fi = FACTION_INFO[f]; 
+                        if(fi) { 
+                            let tag = document.createElement("div"); 
+                            tag.className = "f-tag"; 
+                            tag.style.backgroundColor = fi.color; 
+                            tag.style.clipPath = fi.shape; 
+                            tag.innerText = fi.text; 
+                            tc.appendChild(tag); 
+                        } 
+                    } 
+                } 
+                c.appendChild(tc); 
+                c.innerHTML += `<div style="margin-top:20px; text-align:center;">${name}</div><div class="deck-count">x${r}</div>`; 
+                grid.appendChild(c); 
+            } 
+            document.getElementById("deck-modal").style.display = "flex"; 
+        }
+
+        function resetGame() { 
+            logTrace("game", "resetGame", {});
+            deck = []; 
+            players = Array(4).fill().map(()=>({hand:[], bonds:[], discards:[], revealedCards:[]})); 
+            buffs = Array(4).fill().map(()=>({extraDraw:0, skipTurnCount:0, cannotDraw:false, extraPlay:0, onlyChiPengTurns:0, fishHookTurns:0, immune:false, trap:false, loveLetter:null})); 
+            globalBuffs = { noChiPengTurns: 0 }; turn = 0; gameState = "NORMAL"; isCurrentTurnExtra = false;
+            pendingCardInfo = { card: null, fromPlayer: -1, isUnskippable: false, isTrap: false, isStop: false, isHook: false, isHatCombo: false }; 
+            selectedCardsForPeng = []; currentCanChi = false; currentCanPeng = false; isFirstLog = true; lastActivatedBond = null; unskippableNextCard = false; extraTurnQueue = []; returnTurnAfterExtra = null; 
+            pendingHatPlay = null; interruptState = null; targetSelectionCallback = null;
+            document.getElementById("bond-log-content").innerHTML = '<div style="color:#777; text-align:center; margin-top:20px;">暂无羁绊触发</div>'; 
+            for(let i=0; i<4; i++) document.getElementById(`river-${i}`).innerHTML = "";
+            initGame(); 
+        }
+        
+        // 🌟 严格初始化（物理守恒：31种牌 × 4张 = 124张）
+        function initGame() { 
+            initGlossary(); 
+            let names = Object.keys(CARD_DB); 
+            deck = [];
+            for(let n of names) {
+                for(let i=0; i<4; i++) deck.push(n); 
+            }
+            deck.sort(() => Math.random() - 0.5); 
+            
+            for(let p=0; p<4; p++) {
+                for(let i=0; i<9; i++) {
+                    players[p].hand.push(deck.pop()); 
+                }
+            }
+            logTrace("game", "initGameCompleted", { deckLeft: deck.length, totalDeckInit: names.length * 4 });
+            auditCardCounts();
+            turnStart(0, false); 
+        }
+
+        function checkWin(p) {
+            if(players[p].hand.length === 0) { 
+                logTrace("game", `Player ${p} WON`, { reason: "hand_empty" });
+                playSound("win"); triggerFlash(); gameState = "GAME_OVER"; 
+                setUIState("GAME_OVER", `<div class="win-text">🎉 游戏结束</div>玩家 ${p} 成功清空手牌，获得胜利！`); 
+                updateUI(); return true; 
+            }
+            if(players[p].hand.length === 1 && players[p].hand[0] === "沈鑫浩") { 
+                logTrace("game", `Player ${p} WON`, { reason: "bald_combo" });
+                playSound("epic_win"); triggerFlash(); triggerScreenShake(); gameState = "GAME_OVER"; 
+                setUIState("GAME_OVER", `<div class="win-text">🎉 游戏结束</div>玩家 ${p} 触发【秃头被动】，直接绝杀！`); 
+                addBondLog(p, "onplay", "秃头", "被动特效", "绝境反击，直接胜利！"); 
+                updateUI(); return true; 
+            }
+            return false;
+        }
+
+        function turnStart(p, isExtraTurn = false) {
+            if (gameState === "MENU") return;
+            isCurrentTurnExtra = isExtraTurn;
+            logTrace("turn", "turnStart", { player: p, isExtraTurn, deckLeft: deck.length });
+
+            if(deck.length === 0) { 
+                logTrace("game", "DrawGame (Deck Empty)", {});
+                gameState = "GAME_OVER"; setUIState("GAME_OVER", `<div class="win-text" style="color:#aaa;">🤝 流局</div>牌库已尽，无人胜出！`); 
+                updateUI(); return; 
+            }
+            if(globalBuffs.noChiPengTurns > 0) globalBuffs.noChiPengTurns--; 
+            if(buffs[p].fishHookTurns > 0) buffs[p].fishHookTurns--; 
+            turn = p; 
+
+            // 八封情书每回合开始送一张
+            if(buffs[p].loveLetter && buffs[p].loveLetter.remainingTurns > 0) {
+                let target = buffs[p].loveLetter.target;
+                if(players[p].hand.length > 0) {
+                    let letterCard = players[p].hand.splice(Math.floor(Math.random()*players[p].hand.length), 1)[0];
+                    let rIdx = players[p].revealedCards.indexOf(letterCard);
+                    if(rIdx !== -1) players[p].revealedCards.splice(rIdx, 1);
+                    players[target].hand.push(letterCard);
+                    buffs[p].loveLetter.remainingTurns--;
+                    let rem = buffs[p].loveLetter.remainingTurns;
+                    playSound("mama");
+                    showFloatingText(p, `💌 递出情书【${letterCard}】`, "#ff4081");
+                    showFloatingText(target, `💌 收到情书【${letterCard}】`, "#ff4081");
+                    addBondLog(p, "onplay", "八封情书", `递送给 玩家 ${target}`, `转移了一张【${letterCard}】(剩余 ${rem} 封)`);
+                    if(rem <= 0) {
+                        buffs[p].loveLetter = null;
+                        addBondLog(p, "onplay", "八封情书", "八封已满", "八回合情书攻势圆满结束！");
+                    }
+                    if(checkWin(p)) return;
+                } else {
+                    buffs[p].loveLetter = null;
+                }
+            }
+            
+            if(buffs[turn].skipTurnCount > 0) { 
+                buffs[turn].skipTurnCount--; playSound("jail"); 
+                addBondLog(turn, "system", "回合跳过", "受控制影响", `跳过本回合`); 
+                showFloatingText(turn, "🚫 睡眠/停止中", "#f44336"); 
+                advanceTurn(); return; 
+            }
+            
+            gameState = "NORMAL"; selectedCardsForPeng = []; let drawCount = 1;
+            if(buffs[turn].cannotDraw) { 
+                drawCount = 0; buffs[turn].cannotDraw = false; 
+                addBondLog(turn, "system", "禁止抽卡", "受羁绊影响", "本回合无法摸牌。"); 
+                showFloatingText(turn, "🚫 禁摸牌", "#f44336"); 
+            }
+            drawCount += buffs[turn].extraDraw; buffs[turn].extraDraw = 0;
+            
+            if(drawCount > 0) playSound("draw");
+            for(let i=0; i<drawCount; i++) if(deck.length > 0) players[turn].hand.push(deck.pop());
+            
+            if(checkWin(turn)) return; 
+            if(buffs[turn].onlyChiPengTurns > 0) { 
+                buffs[turn].onlyChiPengTurns--; 
+                addBondLog(turn, "system", "被嘲讽", "受影响只能吃碰", "跳过出牌！"); 
+                showFloatingText(turn, "🤐 被嘲讽", "#f44336"); 
+                advanceTurn(); return; 
+            }
+
+            if(isExtraTurn) {
+                unskippableNextCard = true;
+                showFloatingText(turn, "⏰ 追加回合!", "#00e5ff");
+                addBondLog(turn, "system", "⏰ 追加回合", "行动受限", "获得追加回合！(此回合不可吃碰，出牌一切效果失效)");
+            }
+            
+            let tip = isExtraTurn 
+                ? `<span style="color:#00e5ff;">【⏰ 追加回合】</span>轮到 玩家 ${turn} ${isAI(turn)?'(电脑) 思考中...':'出牌'}<br><span style="font-size:12px; color:#ff5252;">（不可吃碰，出牌一切技能效果失效）</span>`
+                : `轮到 玩家 ${turn} ${isAI(turn)?'(电脑) 思考中...':'出牌'}`;
+
+            setUIState("NORMAL", tip); 
+            updateUI();
+            
+            if(isAI(turn)) setTimeout(aiPlayTurn, 650);
+        }
+
+        function advanceTurn() {
+            logTrace("turn", "advanceTurn", { extraTurnQueueLen: extraTurnQueue.length, currentTurn: turn });
+            if(extraTurnQueue.length > 0) {
+                let nextP = extraTurnQueue.shift();
+                turnStart(nextP, true);
+            } else if(returnTurnAfterExtra !== null) {
+                let back = returnTurnAfterExtra;
+                returnTurnAfterExtra = null;
+                turnStart(back, false);
+            } else {
+                turn = (turn + 1) % 4;
+                turnStart(turn, false);
+            }
+        }
+
+        function aiPlayTurn() { 
+            if(gameState==="GAME_OVER" || gameState==="MENU" || players[turn].hand.length===0) return; 
+            let idx = Math.floor(Math.random() * players[turn].hand.length);
+            playCard(turn, idx); 
+        }
+
+        function checkCanChi(hand, card) { 
+            if(globalBuffs.noChiPengTurns > 0 || !CARD_DB[card] || CARD_DB[card].isWildcard) return false; 
+            let rels = CARD_DB[card].relations || []; 
+            for(let r of rels) if(hand.includes(r)) return true; 
+            return false; 
+        }
+
+        function checkCanPeng(hand, card) { 
+            if(globalBuffs.noChiPengTurns > 0 || !CARD_DB[card] || CARD_DB[card].isWildcard) return false; 
+            let cardFactions = CARD_DB[card].factions || [];
+            for (let faction of cardFactions) {
+                if (faction === "小丑二人组" || !FACTION_INFO[faction]) continue; 
+                let needed = FACTION_INFO[faction].req - 1; 
+                let count = 0;
+                for (let h of hand) {
+                    let hFactions = CARD_DB[h].factions || [];
+                    if (CARD_DB[h].isWildcard || hFactions.includes(faction)) count++;
+                }
+                if (count >= needed) return true;
+            }
+            return false; 
+        }
+
+        function onCardClick(p, idx) {
+            logTrace("ui", "onCardClick", { player: p, cardIndex: idx, card: players[p].hand[idx] });
+            if(gameState === "NORMAL" && p === HUMAN_PLAYER && turn === HUMAN_PLAYER) {
+                playCard(p, idx);
+            } else if(gameState === "SELECTING_PENG" && p === HUMAN_PLAYER) {
+                toggleCardSelectForPeng(idx);
+            } else if(gameState === "AWAITING_RELATION_TARGET" && p === HUMAN_PLAYER) {
+                handleRelationTargetSelect(idx);
+            }
+        }
+
+        function playCard(p, idx) {
+            let card = players[p].hand[idx];
+            logTrace("action", "playCardInit", { player: p, card, idx });
+
+            if(!isCurrentTurnExtra && card === "徐翱的针织帽" && players[p].hand.includes("徐翱")) {
+                if(!isAI(p)) {
+                    pendingHatPlay = { p, idx };
+                    document.getElementById("hat-choice-modal").style.display = "flex";
+                    return;
+                } else {
+                    let doCombo = Math.random() < 0.8;
+                    executePlayCard(p, idx, doCombo);
+                    return;
+                }
+            }
+
+            executePlayCard(p, idx, false);
+        }
+
+        function confirmHatCombo(doCombo) {
+            document.getElementById("hat-choice-modal").style.display = "none";
+            if(!pendingHatPlay) return;
+            let { p, idx } = pendingHatPlay;
+            pendingHatPlay = null;
+            logTrace("action", "confirmHatCombo", { player: p, doCombo });
+            executePlayCard(p, idx, doCombo);
+        }
+
+        // 🌟 极速出牌核心：出牌当帧 0ms 响应入河
+        function executePlayCard(p, idx, isHatCombo) {
+            let card = players[p].hand.splice(idx, 1)[0];
+            let revIdx = players[p].revealedCards.indexOf(card);
+            if(revIdx !== -1) players[p].revealedCards.splice(revIdx, 1);
+
+            playSound("play");
+
+            // 物理守恒合体：将伴随打出的徐翱从手牌物理移除
+            if(isHatCombo) {
+                let xIdx = players[p].hand.indexOf("徐翱");
+                if(xIdx !== -1) {
+                    players[p].hand.splice(xIdx, 1);
+                    let rxIdx = players[p].revealedCards.indexOf("徐翱");
+                    if(rxIdx !== -1) players[p].revealedCards.splice(rxIdx, 1);
+                    playSound("combo");
+                    triggerFlash();
+                    showSplash("🎩 合体出击！", "#9c27b0");
+                    addBondLog(p, "onplay", "助眠陷阱", "与徐翱合体打出！", "吃碰该牌者将陷入一回合睡眠！");
+                }
+            }
+
+            let wasUnskippable = unskippableNextCard || isCurrentTurnExtra;
+            unskippableNextCard = false;
+
+            pendingCardInfo = { 
+                card: isHatCombo ? "徐翱" : card, 
+                fromPlayer: p, 
+                isUnskippable: wasUnskippable,
+                isTrap: (!isCurrentTurnExtra && card === "范文豪"),
+                isStop: (!isCurrentTurnExtra && card === "温秦富"),
+                isHook: (!isCurrentTurnExtra && card === "唐洋"),
+                isHatCombo: isHatCombo
+            };
+
+            logTrace("action", "cardPlayed", { player: p, pendingCardInfo, isCurrentTurnExtra });
+
+            // 当帧同步更新玩家自身的手牌视图
+            updateUI();
+
+            if(isCurrentTurnExtra) {
+                showFloatingText(p, "🚫 追加回合：技能失效", "#ff5252");
+                addBondLog(p, "system", "技能失效", `打出【${card}】`, "追加回合内出牌一切效果失效！");
+                afterCardPlayResolved(p, wasUnskippable);
+                return;
+            }
+
+            triggerOnPlay(p, card, () => {
+                afterCardPlayResolved(p, wasUnskippable);
+            });
+        }
+
+        function afterCardPlayResolved(p, wasUnskippable) {
+            if(checkWin(p)) return;
+
+            if(buffs[p].extraPlay > 0) {
+                buffs[p].extraPlay--;
+                discardToRiver(p, pendingCardInfo.card, pendingCardInfo.isUnskippable, pendingCardInfo.isHatCombo);
+                resetPendingCardInfo();
+                updateUI();
+                if(players[p].hand.length > 0) {
+                    setUIState("NORMAL", `玩家 ${p} 连击出牌中！`);
+                    if(isAI(p)) setTimeout(aiPlayTurn, 500);
+                } else {
+                    advanceTurn();
+                }
+                return;
+            }
+
+            let nextPlayer = (p + 1) % 4;
+            let cChi = (!wasUnskippable) && checkCanChi(players[nextPlayer].hand, pendingCardInfo.card);
+            let cPeng = (!wasUnskippable) && checkCanPeng(players[nextPlayer].hand, pendingCardInfo.card);
+
+            logTrace("rule", "checkNextPlayerChiPeng", { targetPlayer: nextPlayer, canChi: cChi, canPeng: cPeng, wasUnskippable });
+
+            if(cChi || cPeng) {
+                if(nextPlayer === HUMAN_PLAYER) {
+                    gameState = "WAITING_FOR_ACTION";
+                    currentCanChi = cChi;
+                    currentCanPeng = cPeng;
+                    setUIState("WAITING_FOR_ACTION", `上家 (玩家 ${p}) 打出了【${pendingCardInfo.card}】${pendingCardInfo.isHatCombo?'(合体)':''}，请选择行动：`);
+                    updateUI();
+                } else {
+                    handleSingleAIResponse(nextPlayer, cChi, cPeng);
+                }
+            } else {
+                discardToRiver(p, pendingCardInfo.card, pendingCardInfo.isUnskippable, pendingCardInfo.isHatCombo);
+                resetPendingCardInfo();
+                advanceTurn();
+            }
+        }
+
+        function resetPendingCardInfo() {
+            pendingCardInfo = { card: null, fromPlayer: -1, isUnskippable: false, isTrap: false, isStop: false, isHook: false, isHatCombo: false };
+        }
+
+        function triggerOnPlay(p, card, callback) {
+            logTrace("onplay", `Triggering on-play for ${card} by P${p}`, {});
+            if(card === "刘鸿铭") {
+                playSound("susu"); showSplash("侍奉之心！", "#ffd700");
+                addBondLog(p, "onplay", "侍奉之心", "全员摸牌", "各抽一张牌，并顺时针开启全员追加回合！");
+                for(let i=0; i<4; i++) if(deck.length > 0) players[i].hand.push(deck.pop());
+                extraTurnQueue = [(p+1)%4, (p+2)%4, (p+3)%4, p];
+                returnTurnAfterExtra = (p+1)%4;
+                updateUI(); callback();
+            } else if(card === "周晓培") {
+                playSound("lol"); showSplash("圣诞天使！", "#ffd700");
+                addBondLog(p, "onplay", "圣诞天使", "时光馈赠", "顺时针开启全员追加回合！");
+                extraTurnQueue = [(p+1)%4, (p+2)%4, (p+3)%4, p];
+                returnTurnAfterExtra = (p+1)%4;
+                updateUI(); callback();
+            } else if(card === "王歆昊") {
+                // 物理守恒：严格从弃牌堆移除，绝不凭空克隆
+                playSound("timi"); showSplash("圣诞礼物！", "#ffd700");
+                addBondLog(p, "onplay", "圣诞礼物", "回捞弃牌", "所有人从弃牌堆随机打捞一张卡！");
+                for(let i=0; i<4; i++) {
+                    let candRivers = [];
+                    for(let k=0; k<4; k++) {
+                        if(players[k].discards.length > 0) candRivers.push(k);
+                    }
+                    if(candRivers.length > 0) {
+                        let fromR = candRivers[Math.floor(Math.random() * candRivers.length)];
+                        let rIndex = Math.floor(Math.random() * players[fromR].discards.length);
+                        let picked = players[fromR].discards.splice(rIndex, 1)[0];
+                        let rDom = document.getElementById(`river-${fromR}`);
+                        if(rDom && rDom.children.length > rIndex) {
+                            rDom.removeChild(rDom.children[rIndex]);
+                        }
+                        players[i].hand.push(picked);
+                        showFloatingText(i, `+1 捞到【${picked}】`, "#4caf50");
+                    }
+                }
+                updateUI(); callback();
+            } else if(card === "界刘嘉祺") {
+                if(isAI(p)) {
+                    let t = (p+1)%4;
+                    executeRevealOpponentCards(t);
+                    callback();
+                } else {
+                    promptSelectPlayer(p, "哑婆婆：选择你想直接明牌展示两张手牌的对手", (t) => {
+                        executeRevealOpponentCards(t);
+                        callback();
+                    });
+                }
+            } else if(card === "界曾灏铭") {
+                playSound("jail");
+                if(isAI(p)) {
+                    let t = (p+1)%4;
+                    buffs[p].skipTurnCount += 1;
+                    applyNegativeEffect(t, "铁窗泪", () => { buffs[t].skipTurnCount += 1; });
+                    addBondLog(p, "onplay", "铁窗泪", "双方画地为牢", `玩家 ${p} 与 玩家 ${t} 均停顿一回合！`);
+                    callback();
+                } else {
+                    promptSelectPlayer(p, "铁窗泪：选择要陪你一起坐牢的玩家", (t) => {
+                        buffs[p].skipTurnCount += 1;
+                        applyNegativeEffect(t, "铁窗泪", () => { buffs[t].skipTurnCount += 1; });
+                        addBondLog(p, "onplay", "铁窗泪", "双方画地为牢", `玩家 ${p} 与 玩家 ${t} 均停顿一回合！`);
+                        callback();
+                    });
+                }
+            } else if(card === "界彭籽稼") {
+                buffs[p].immune = true;
+                playSound("shield");
+                showFloatingText(p, "🛡️ 护盾开启", "#4caf50");
+                addBondLog(p, "onplay", "讲文明树新风", "护盾生效", "获得了免疫一次负面效果的护盾。");
+                callback();
+            } else if(card === "王齐岳") {
+                playSound("steal");
+                let maxCount = -1; let cand = [];
+                for(let i=0; i<4; i++) {
+                    if(i === p) continue;
+                    if(players[i].hand.length > maxCount) {
+                        maxCount = players[i].hand.length;
+                        cand = [i];
+                    } else if(players[i].hand.length === maxCount) {
+                        cand.push(i);
+                    }
+                }
+                if(cand.length > 0 && maxCount > 0) {
+                    let target = cand[Math.floor(Math.random()*cand.length)];
+                    applyNegativeEffect(target, "篮球健将抢夺", () => {
+                        let stolen = players[target].hand.splice(Math.floor(Math.random()*players[target].hand.length), 1)[0];
+                        let rIdx = players[target].revealedCards.indexOf(stolen);
+                        if(rIdx !== -1) players[target].revealedCards.splice(rIdx, 1);
+                        players[p].hand.push(stolen);
+                        showFloatingText(target, "🏀 被抢夺!", "#f44336");
+                        showFloatingText(p, `+1 抢夺到牌`, "#4caf50");
+                        addBondLog(p, "onplay", "篮球健将", `运球如飞`, `抢夺了玩家 ${target} 的一张手牌！`);
+                    });
+                }
+                callback();
+            } else if(card === "夏运") {
+                let nextP = (p+1)%4;
+                applyNegativeEffect(nextP, "夏运的嘲讽", () => {
+                    buffs[nextP].onlyChiPengTurns += 1;
+                    showFloatingText(nextP, "🤐 被嘲讽", "#f44336");
+                    addBondLog(p, "onplay", "你想想就知道", "嘲讽下家", `玩家 ${nextP} 下回合无法出牌，只能吃碰！`);
+                });
+                callback();
+            } else if(card === "唐洋") {
+                buffs[p].fishHookTurns = 4;
+                addBondLog(p, "onplay", "愿者上钩", "布下钓鱼陷阱", "一圈内若有人吃碰此牌，将获得额外抽牌奖励！");
+                callback();
+            } else if(card === "彭籽稼") {
+                let curHandExcludingSelf = players[p].hand.length;
+                if(curHandExcludingSelf === 8) {
+                    playSound("mama");
+                    if(isAI(p)) {
+                        let t = (p+1)%4;
+                        buffs[p].loveLetter = { target: t, remainingTurns: 8 };
+                        showSplash("💌 八封情书！", "#e91e63");
+                        addBondLog(p, "onplay", "八封情书", `锁定目标 玩家 ${t}`, "8回合内每回合将转移一张手牌给对方！(任意一方出羁绊则解除)");
+                        callback();
+                    } else {
+                        promptSelectPlayer(p, "八封情书触发！选择你8回合内持续倾诉递送手牌的目标：", (t) => {
+                            buffs[p].loveLetter = { target: t, remainingTurns: 8 };
+                            showSplash("💌 八封情书！", "#e91e63");
+                            addBondLog(p, "onplay", "八封情书", `锁定目标 玩家 ${t}`, "8回合内每回合将转移一张手牌给对方！(任意一方出羁绊则解除)");
+                            callback();
+                        });
+                    }
+                } else {
+                    addBondLog(p, "onplay", "彭籽稼", "未达条件", `手牌数为 ${curHandExcludingSelf} 张(需恰好8张，不含本体)，未触发【八封情书】`);
+                    callback();
+                }
+            } else {
+                callback();
+            }
+        }
+
+        function executeRevealOpponentCards(t) {
+            let hiddenCards = players[t].hand.filter(c => !players[t].revealedCards.includes(c));
+            if(hiddenCards.length === 0) hiddenCards = players[t].hand.slice();
+            hiddenCards.sort(() => Math.random() - 0.5);
+            let toReveal = hiddenCards.slice(0, 2);
+            toReveal.forEach(c => {
+                if(!players[t].revealedCards.includes(c)) players[t].revealedCards.push(c);
+            });
+            showFloatingText(t, `👁️ 2张手牌被明牌!`, "#00e5ff");
+            addBondLog(turn, "onplay", "哑婆婆", `透视明牌`, `直接令玩家 ${t} 的手牌【${toReveal.join('、')}】明牌化显示！`);
+            updateUI();
+        }
+
+        function promptSelectPlayer(sourceP, tip, callback) {
+            logTrace("ui", "promptSelectPlayerModal", { sourceP, tip });
+            let modal = document.getElementById("target-select-modal");
+            document.getElementById("target-modal-desc").innerText = tip;
+            let wrap = document.getElementById("target-buttons-wrap");
+            wrap.innerHTML = "";
+
+            targetSelectionCallback = (chosenP) => {
+                modal.style.display = "none";
+                for(let i=0; i<4; i++) document.getElementById(`player-${i}`).classList.remove("targetable");
+                targetSelectionCallback = null;
+                logTrace("action", "targetChosen", { sourceP, targetPlayer: chosenP });
+                callback(chosenP);
+            };
+
+            const P_NAMES = ["我 (下)", "对手 1 (左)", "对手 2 (上)", "对手 3 (右)"];
+            for(let i=0; i<4; i++) {
+                if(i !== sourceP) {
+                    let btn = document.createElement("button");
+                    btn.className = "target-pick-btn";
+                    btn.innerText = `${P_NAMES[i]} (手牌: ${players[i].hand.length}张)`;
+                    btn.onclick = () => targetSelectionCallback(i);
+                    wrap.appendChild(btn);
+                    document.getElementById(`player-${i}`).classList.add("targetable");
+                }
+            }
+            modal.style.display = "flex";
+        }
+
+        function selectTargetPlayer(p) {
+            if(targetSelectionCallback) {
+                targetSelectionCallback(p);
+            }
+        }
+
+        function handleSingleAIResponse(aiPlayer, canChi, canPeng) {
+            logTrace("ai", "handleSingleAIResponse", { aiPlayer, canChi, canPeng });
+            let handled = false;
+            if(canPeng && Math.random() < 0.6) {
+                aiExecutePeng(aiPlayer);
+                handled = true;
+            } else if(canChi && Math.random() < 0.5) {
+                aiExecuteChi(aiPlayer);
+                handled = true;
+            }
+            if(!handled) {
+                logTrace("ai", "AIPassed", { aiPlayer });
+                discardToRiver(pendingCardInfo.fromPlayer, pendingCardInfo.card, pendingCardInfo.isUnskippable, pendingCardInfo.isHatCombo);
+                resetPendingCardInfo();
+                advanceTurn();
+            }
+        }
+
+        // 🌟 修复：AI 碰牌也严格执行“高阶阵营优先”
+        function aiExecutePeng(p) {
+            let card = pendingCardInfo.card;
+            let factions = CARD_DB[card].factions || [];
+            let validFactions = factions.filter(f => FACTION_INFO[f] && f !== "小丑二人组");
+            // 降序排序，人数要求多的优先
+            validFactions.sort((a,b) => FACTION_INFO[b].req - FACTION_INFO[a].req);
+
+            for(let faction of validFactions) {
+                let req = FACTION_INFO[faction].req - 1;
+                let chosenHand = [];
+                for(let h of players[p].hand) {
+                    let hF = CARD_DB[h].factions || [];
+                    if(CARD_DB[h].isWildcard || hF.includes(faction)) {
+                        chosenHand.push(h);
+                        if(chosenHand.length === req) break;
+                    }
+                }
+                if(chosenHand.length === req) {
+                    executePengAction(p, faction, chosenHand);
+                    return;
+                }
+            }
+        }
+
+        function aiExecuteChi(p) {
+            let card = pendingCardInfo.card;
+            let rels = CARD_DB[card].relations || [];
+            let targetCard = rels.find(r => players[p].hand.includes(r));
+            if(!targetCard) return;
+            executeChiAction(p, targetCard);
+        }
+
+        function btnChi() {
+            logTrace("ui", "btnChiClicked", {});
+            gameState = "AWAITING_RELATION_TARGET";
+            setUIState("AWAITING_RELATION_TARGET", "请点击手牌中与弃牌有关系的一张卡牌：");
+            updateUI();
+        }
+
+        function handleRelationTargetSelect(idx) {
+            let cardInHand = players[HUMAN_PLAYER].hand[idx];
+            let rels = CARD_DB[pendingCardInfo.card].relations || [];
+            logTrace("action", "humanSelectRelationCard", { cardInHand, validRelations: rels });
+            if(rels.includes(cardInHand)) {
+                executeChiAction(HUMAN_PLAYER, cardInHand);
+            } else {
+                showFloatingText(HUMAN_PLAYER, "无关系羁绊", "#f44336");
+            }
+        }
+
+        function btnPeng() {
+            logTrace("ui", "btnPengClicked", {});
+            gameState = "SELECTING_PENG";
+            selectedCardsForPeng = [];
+            setUIState("SELECTING_PENG", "请在手牌中选择同阵营的卡牌，然后点击【确认碰】：");
+            updateUI();
+        }
+
+        function toggleCardSelectForPeng(idx) {
+            let pos = selectedCardsForPeng.indexOf(idx);
+            if(pos >= 0) selectedCardsForPeng.splice(pos, 1);
+            else selectedCardsForPeng.push(idx);
+            logTrace("ui", "toggleCardSelectForPeng", { selectedIndices: selectedCardsForPeng });
+            updateUI();
+        }
+
+        // 🌟 修复核心 Bug 1：按人数优先判定大阵营（例如 5 人梦之队优先于 3 人酥酥软软）
+        function confirmPeng() {
+            if(selectedCardsForPeng.length === 0) return;
+            let handCards = selectedCardsForPeng.map(i => players[HUMAN_PLAYER].hand[i]);
+            let targetCard = pendingCardInfo.card;
+            let fCommon = null;
+            let tFactions = (CARD_DB[targetCard].factions || []).filter(f => FACTION_INFO[f] && f !== "小丑二人组");
+            
+            // 🌟 核心排序：按阵营所需人数降序排列，确保满足人数最多的大阵营绝对优先判定！
+            tFactions.sort((a, b) => FACTION_INFO[b].req - FACTION_INFO[a].req);
+
+            let totalCardsCount = handCards.length + 1; // 选中的手牌 + 弃牌本身
+
+            for(let f of tFactions) {
+                let req = FACTION_INFO[f].req;
+                // 只有当放入的牌数恰好等于或满足阵营人数时才进入校验
+                if(totalCardsCount >= req) {
+                    let ok = true;
+                    for(let hc of handCards) {
+                        let hF = CARD_DB[hc].factions || [];
+                        if(!CARD_DB[hc].isWildcard && !hF.includes(f)) { 
+                            ok = false; break; 
+                        }
+                    }
+                    if(ok) {
+                        fCommon = f; 
+                        break; // 命中最高要求的大阵营，完美退出
+                    }
+                }
+            }
+
+            logTrace("action", "confirmPengAttempt", { fCommon, handCards, totalCardsCount });
+
+            if(fCommon) {
+                // 如果玩家多选了牌，只取出对应人数所需的牌，多余的不扣
+                let needCount = FACTION_INFO[fCommon].req - 1;
+                selectedCardsForPeng.sort((a,b)=>b-a);
+                let chosen = [];
+                for(let i=0; i<needCount; i++) {
+                    let idx = selectedCardsForPeng[i];
+                    chosen.push(players[HUMAN_PLAYER].hand.splice(idx, 1)[0]);
+                }
+                selectedCardsForPeng = [];
+                executePengAction(HUMAN_PLAYER, fCommon, chosen);
+            } else {
+                showFloatingText(HUMAN_PLAYER, "阵营牌数不足或不符", "#f44336");
+            }
+        }
+
+        function btnPass() {
+            logTrace("ui", "btnPassClicked", { currentState: gameState });
+            if(gameState === "SELECTING_PENG" || gameState === "AWAITING_RELATION_TARGET") {
+                selectedCardsForPeng = [];
+                gameState = "WAITING_FOR_ACTION";
+                setUIState("WAITING_FOR_ACTION", `上家 (玩家 ${pendingCardInfo.fromPlayer}) 打出了【${pendingCardInfo.card}】，请选择行动：`);
+                updateUI();
+                return;
+            }
+
+            if(gameState === "WAITING_FOR_ACTION") {
+                resolvePass();
+            }
+        }
+
+        function resolvePass() {
+            logTrace("action", "resolvePass (Human passed)", {});
+            selectedCardsForPeng = [];
+            discardToRiver(pendingCardInfo.fromPlayer, pendingCardInfo.card, pendingCardInfo.isUnskippable, pendingCardInfo.isHatCombo);
+            resetPendingCardInfo();
+            setUIState("NORMAL", "已过牌");
+            advanceTurn();
+        }
+
+        function checkClownInterruption(actorP, targetCard, onPassAction) {
+            let clownees = [];
+            for(let i=0; i<4; i++) {
+                if(i === actorP) continue;
+                let h = players[i].hand;
+                let hasCombo1 = h.includes("曾灏铭") && h.includes("刘嘉祺");
+                let hasCombo2 = h.includes("徐翱") && h.includes("安以文");
+                if(hasCombo1 || hasCombo2) {
+                    clownees.push({ p: i, combo: hasCombo1 ? ["曾灏铭", "刘嘉祺"] : ["徐翱", "安以文"] });
+                }
+            }
+
+            if(clownees.length > 0) {
+                let humanClown = clownees.find(c => c.p === HUMAN_PLAYER);
+                if(humanClown) {
+                    interruptState = { clownP: HUMAN_PLAYER, actorP, combo: humanClown.combo, resumeFn: onPassAction };
+                    gameState = "INTERRUPTING";
+                    setUIState("INTERRUPTING", `玩家 ${actorP} 正在吃牌！你持有【小丑二人组】，是否截断施法？`);
+                    updateUI();
+                    return;
+                } else {
+                    let ai = clownees[0];
+                    if(Math.random() < 0.6) {
+                        executeClownIntercept(ai.p, actorP, ai.combo);
+                        return;
+                    }
+                }
+            }
+
+            onPassAction();
+        }
+
+        function confirmInterrupt() {
+            if(!interruptState) return;
+            let { clownP, actorP, combo } = interruptState;
+            interruptState = null;
+            logTrace("action", "confirmInterrupt", { clownP, actorP, combo });
+            executeClownIntercept(clownP, actorP, combo);
+        }
+
+        function passInterrupt() {
+            if(!interruptState) return;
+            let resume = interruptState.resumeFn;
+            interruptState = null;
+            logTrace("action", "passInterrupt", {});
+            resume();
+        }
+
+        function executeClownIntercept(clownP, victimP, comboCards) {
+            logTrace("bond", "executeClownIntercept", { clownP, victimP, comboCards });
+            playSound("clown");
+            triggerScreenShake();
+            showSplash("🤡 截断施法！", "#9c27b0");
+
+            for(let c of comboCards) {
+                let idx = players[clownP].hand.indexOf(c);
+                if(idx !== -1) players[clownP].hand.splice(idx, 1);
+                let rIdx = players[clownP].revealedCards.indexOf(c);
+                if(rIdx !== -1) players[clownP].revealedCards.splice(rIdx, 1);
+            }
+            players[clownP].bonds.push({ type: "faction", name: "小丑二人组", desc: "截断吃牌并强塞一张手牌！", cards: comboCards });
+
+            checkAndBreakLoveLetterOnBond(clownP);
+            checkAndBreakLoveLetterOnBond(victimP);
+
+            if(players[clownP].hand.length > 0) {
+                let gift = players[clownP].hand.splice(0, 1)[0];
+                let rIdx = players[clownP].revealedCards.indexOf(gift);
+                if(rIdx !== -1) players[clownP].revealedCards.splice(rIdx, 1);
+                players[victimP].hand.push(gift);
+                showFloatingText(victimP, `被迫收下【${gift}】`, "#f44336");
+            }
+
+            addBondLog(clownP, "faction", "小丑二人组", "强行截断！", `拦截了玩家 ${victimP} 的吃牌，并强塞一张手牌！`);
+            
+            // 被拦截的弃牌正常落入河道
+            discardToRiver(pendingCardInfo.fromPlayer, pendingCardInfo.card, pendingCardInfo.isUnskippable, pendingCardInfo.isHatCombo);
+            resetPendingCardInfo();
+            startPlayTurnAfterAction(clownP);
+        }
+
+        // 🌟 修复核心 Bug 2：被吃/碰走的卡牌，绝不放入弃牌河，确保物理唯一守恒
+        function executeChiAction(p, cardInHand) {
+            let discardedCard = pendingCardInfo.card;
+            logTrace("action", "executeChiAction", { player: p, cardInHand, discardedCard });
+
+            checkClownInterruption(p, discardedCard, () => {
+                playSound("chi");
+                let idx = players[p].hand.indexOf(cardInHand);
+                if(idx !== -1) players[p].hand.splice(idx, 1);
+                let rIdx = players[p].revealedCards.indexOf(cardInHand);
+                if(rIdx !== -1) players[p].revealedCards.splice(rIdx, 1);
+
+                // 被吃走的牌直接移入副露区，不留存河道
+                players[p].bonds.push({
+                    type: "relation",
+                    name: `${cardInHand}-${discardedCard}`,
+                    desc: getRelationDesc(cardInHand, discardedCard),
+                    cards: [discardedCard, cardInHand]
+                });
+
+                checkAndBreakLoveLetterOnBond(p);
+                handleEatenCardTraps(p);
+                triggerRelationEffect(p, cardInHand, discardedCard);
+
+                resetPendingCardInfo();
+
+                if(!checkWin(p)) {
+                    startPlayTurnAfterAction(p);
+                }
+            });
+        }
+
+        function executePengAction(p, faction, handCards) {
+            let discardedCard = pendingCardInfo.card;
+            logTrace("action", "executePengAction", { player: p, faction, handCards, discardedCard });
+            playSound("peng");
+
+            // 被碰走的牌直接移入副露区，绝不在河道重复计票
+            let allCards = [discardedCard, ...handCards];
+            players[p].bonds.push({
+                type: "faction",
+                name: faction,
+                desc: FACTION_INFO[faction] ? FACTION_INFO[faction].desc : "发动阵营效果",
+                cards: allCards
+            });
+
+            handCards.forEach(c => {
+                let rIdx = players[p].revealedCards.indexOf(c);
+                if(rIdx !== -1) players[p].revealedCards.splice(rIdx, 1);
+            });
+
+            checkAndBreakLoveLetterOnBond(p);
+            handleEatenCardTraps(p);
+            triggerFactionEffect(p, faction);
+
+            resetPendingCardInfo();
+
+            if(!checkWin(p)) {
+                startPlayTurnAfterAction(p);
+            }
+        }
+
+        function startPlayTurnAfterAction(p) {
+            turn = p;
+            gameState = "NORMAL";
+            selectedCardsForPeng = [];
+            setUIState("NORMAL", `玩家 ${p} 吃/碰成功，请打出一张手牌：`);
+            updateUI();
+            if(isAI(p)) {
+                setTimeout(aiPlayTurn, 650);
+            }
+        }
+
+        function handleEatenCardTraps(eaterP) {
+            logTrace("trap", "handleEatenCardTraps", { eaterP, pendingCardInfo });
+            if(pendingCardInfo.isTrap) {
+                applyNegativeEffect(eaterP, "骗人题反制", () => {
+                    buffs[eaterP].skipTurnCount += 1;
+                    showFloatingText(eaterP, "🚫 掉入骗人题陷阱", "#f44336");
+                    addBondLog(eaterP, "system", "中计", "触发范文豪陷阱", "被反制跳过下一回合！");
+                });
+            }
+            if(pendingCardInfo.isStop) {
+                applyNegativeEffect(eaterP, "停止哥", () => {
+                    buffs[eaterP].skipTurnCount += 1;
+                    showFloatingText(eaterP, "🛑 停止哥罚坐", "#f44336");
+                    addBondLog(eaterP, "system", "停止", "吃了温秦富", "跳过下一回合行动！");
+                });
+            }
+            if(buffs[pendingCardInfo.fromPlayer] && buffs[pendingCardInfo.fromPlayer].fishHookTurns > 0) {
+                if(deck.length > 0) {
+                    players[eaterP].hand.push(deck.pop());
+                    showFloatingText(eaterP, "+1 贪吃多摸", "#4caf50");
+                    addBondLog(eaterP, "system", "愿者上钩", "唐洋钓鱼生效", "额外抽取了一张卡牌。");
+                }
+            }
+            if(pendingCardInfo.isHatCombo) {
+                applyNegativeEffect(eaterP, "助眠神器", () => {
+                    buffs[eaterP].skipTurnCount += 1;
+                    playSound("sleep");
+                    showFloatingText(eaterP, "💤 沉睡一回合", "#9c27b0");
+                    addBondLog(eaterP, "system", "沉睡", "吃了带针织帽的徐翱", "陷入一回合睡眠！");
+                });
+            }
+        }
+
+        function triggerRelationEffect(p, c1, c2) {
+            let key1 = `${c1}-${c2}`; let key2 = `${c2}-${c1}`;
+            let match = (k) => (key1 === k || key2 === k);
+            logTrace("relation", "triggerRelationEffect", { player: p, c1, c2 });
+
+            if(match("曾灏铭-刘嘉祺") || match("曾灏铭-曾灏铭") || match("界曾灏铭-界曾灏铭")) {
+                if(lastActivatedBond) {
+                    addBondLog(p, "relation", "复刻", "最熟悉的陌生人", `发动了上一个羁绊：${lastActivatedBond}`);
+                    if(FACTION_INFO[lastActivatedBond]) triggerFactionEffect(p, lastActivatedBond);
+                } else {
+                    addBondLog(p, "relation", "无羁绊复刻", "最熟悉的陌生人", "场上此前未发动过任何羁绊。");
+                }
+            } else if(match("徐翱-安以文")) {
+                if(players[p].hand.length >= 5) {
+                    buffs[p].extraPlay += 1;
+                    addBondLog(p, "relation", "半段", "牌力充盈", "额外获得一次连打机会！");
+                }
+            } else if(match("徐翱-李奕潼")) {
+                let mePrime = isPrime(players[p].hand.length);
+                let opPrime = isPrime(players[pendingCardInfo.fromPlayer >= 0 ? pendingCardInfo.fromPlayer : 0].hand.length);
+                if(mePrime && opPrime) {
+                    buffs[p].extraPlay += 1;
+                    if(pendingCardInfo.fromPlayer >= 0) buffs[pendingCardInfo.fromPlayer].extraPlay += 1;
+                    addBondLog(p, "relation", "数学王者", "质数共振", "双方均获得一次额外连打机会！");
+                }
+            } else if(match("朱喆宇-孙佳煜")) {
+                let nextP = (p+1)%4;
+                applyNegativeEffect(nextP, "完美镜头", () => {
+                    buffs[nextP].skipTurnCount += 1;
+                    addBondLog(p, "relation", "完美镜头", "特写暂停", `令下家 玩家 ${nextP} 暂停一回合行动！`);
+                });
+            } else if(match("刘子豪-安以文")) {
+                playSound("mama");
+                addBondLog(p, "relation", "妈妈", "全场高呼妈妈", "全员各抽一张牌！");
+                for(let i=0; i<4; i++) if(deck.length > 0) players[i].hand.push(deck.pop());
+            } else if(match("顾嘉誉-郑昕玮") || match("杨嘉毅-郑昕玮")) {
+                buffs[p].cannotDraw = true;
+                addBondLog(p, "relation", "坐骑形态", "无法自拔", "自身下回合无法摸牌！");
+            } else if(match("单冯烨-刘嘉祺")) {
+                let target = pendingCardInfo.fromPlayer >= 0 ? pendingCardInfo.fromPlayer : (p+1)%4;
+                if(players[target].hand.length > 0 && players[p].hand.length > 0) {
+                    let cardT = players[target].hand.splice(Math.floor(Math.random()*players[target].hand.length), 1)[0];
+                    let cardMe = players[p].hand.splice(Math.floor(Math.random()*players[p].hand.length), 1)[0];
+                    players[p].hand.push(cardT);
+                    players[target].hand.push(cardMe);
+                    addBondLog(p, "relation", "姐姐", "换牌魔术", `与 玩家 ${target} 随机交换了一张手牌！`);
+                }
+            } else if(match("张浩泉-张浩泉")) {
+                playSound("ora");
+                for(let i=0; i<3; i++) if(deck.length > 0) players[p].hand.push(deck.pop());
+                buffs[p].extraPlay += 3;
+                buffs[p].skipTurnCount += 2;
+                addBondLog(p, "relation", "超导战士", "超频过载", "疯狂抽打3次，但下两回合无法行动！");
+            }
+        }
+
+        function triggerFactionEffect(p, faction) {
+            lastActivatedBond = faction;
+            logTrace("faction", "triggerFactionEffect", { player: p, faction });
+            if(faction === "强盛集团") {
+                if(deck.length > 0) players[p].hand.push(deck.pop());
+                unskippableNextCard = true;
+                buffs[p].extraPlay += 1;
+                addBondLog(p, "faction", "强盛集团", "狂飙突进", "抽一张牌，并额外打出一张不可吃碰的牌！");
+            } else if(faction === "三小只") {
+                let passed = [];
+                for(let i=0; i<4; i++) {
+                    if(players[i].hand.length > 0) {
+                        passed[i] = players[i].hand.splice(Math.floor(Math.random()*players[i].hand.length), 1)[0];
+                        let rIdx = players[i].revealedCards.indexOf(passed[i]);
+                        if(rIdx !== -1) players[i].revealedCards.splice(rIdx, 1);
+                    } else { passed[i] = null; }
+                }
+                for(let i=0; i<4; i++) {
+                    let next = (i+1)%4;
+                    if(passed[i]) players[next].hand.push(passed[i]);
+                }
+                addBondLog(p, "faction", "三小只", "快乐传真", "全场随机一张手牌顺时针传递给下家！");
+            } else if(faction === "酥酥软软") {
+                playSound("susu");
+                addBondLog(p, "faction", "酥酥软软", "声入人心", "“再加上你那酥酥软软的声音...”");
+            } else if(faction === "增重计划") {
+                let t = (p+1)%4;
+                buffs[t].extraDraw += 1;
+                addBondLog(p, "faction", "增重计划", "加量不加价", `指定 玩家 ${t} 下回合额外抽一张牌！`);
+            } else if(faction === "启动·英雄联盟") {
+                playSound("lol");
+                let keys = ["强盛集团", "酥酥软软", "卷王二人组", "增重计划"];
+                let chosen = keys[Math.floor(Math.random()*keys.length)];
+                addBondLog(p, "faction", "英雄联盟", "随机启动", `白嫖发动基础阵营：【${chosen}】`);
+                triggerFactionEffect(p, chosen);
+            } else if(faction === "启动·王者荣耀") {
+                playSound("timi");
+                if(lastActivatedBond && lastActivatedBond !== "启动·王者荣耀") {
+                    addBondLog(p, "faction", "王者荣耀", "历史重现", `复刻发动上一个羁绊：【${lastActivatedBond}】`);
+                    triggerFactionEffect(p, lastActivatedBond);
+                } else {
+                    addBondLog(p, "faction", "王者荣耀", "孤立无援", "此前没有发动过有效羁绊。");
+                }
+            } else if(faction === "梦之队·一队") {
+                playSound("duel");
+                let target = (p+1)%4;
+                if(players[target].hand.length < players[p].hand.length && players[p].hand.length > 0) {
+                    let gift = players[p].hand.splice(0, 1)[0];
+                    let rIdx = players[p].revealedCards.indexOf(gift);
+                    if(rIdx !== -1) players[p].revealedCards.splice(rIdx, 1);
+                    players[target].hand.push(gift);
+                    addBondLog(p, "faction", "梦之队·一队", "胜利制裁", `手牌多于对手，送出了一张【${gift}】！`);
+                }
+            } else if(faction === "梦之队·二队") {
+                playSound("duel");
+                let target = (p+1)%4;
+                if(players[target].hand.length > players[p].hand.length && players[p].hand.length > 0) {
+                    let gift = players[p].hand.splice(0, 1)[0];
+                    let rIdx = players[p].revealedCards.indexOf(gift);
+                    if(rIdx !== -1) players[p].revealedCards.splice(rIdx, 1);
+                    players[target].hand.push(gift);
+                    addBondLog(p, "faction", "梦之队·二队", "以弱胜强", `手牌少于对手，送出了一张【${gift}】！`);
+                }
+            } else if(faction === "卷王二人组") {
+                if(deck.length > 0) {
+                    players[p].hand.push(deck.pop());
+                    addBondLog(p, "faction", "卷王二人组", "偷偷努力", "额外摸一张牌并不打出！");
+                }
+            } else if(faction === "南模天团") {
+                globalBuffs.noChiPengTurns = 4;
+                showSplash("南模封锁！", "#673ab7");
+                addBondLog(p, "faction", "南模天团", "全场禁魔", "未来一圈内禁止所有人吃碰！");
+            }
+        }
+
+        function discardToRiver(p, card, unskippable, isHat) {
+            if(!card) return;
+            logTrace("river", "discardToRiver", { player: p, card, unskippable, isHat });
+            let r = document.getElementById(`river-${p}`);
+            let div = document.createElement("div");
+            div.className = "card mini-card" + (unskippable ? " unskippable" : "");
+            if(isHat) div.style.border = "2px solid #9c27b0";
+            div.style.backgroundImage = `url('${CARD_DB[card].img}')`;
+            div.innerText = isHat ? "徐翱(帽)" : card;
+            r.appendChild(div);
+            players[p].discards.push(card);
+        }
+
+        function setUIState(st, text) {
+            logTrace("ui", "setUIState", { targetState: st, textPrompt: text });
+            let pnl = document.getElementById("action-panel");
+            let t = document.getElementById("action-text");
+            let bChi = document.getElementById("btn-chi");
+            let bPeng = document.getElementById("btn-peng");
+            let bConf = document.getElementById("btn-confirm");
+            let bPass = document.getElementById("btn-pass");
+            let bInt = document.getElementById("btn-interrupt");
+            let bPassInt = document.getElementById("btn-pass-interrupt");
+            let bRest = document.getElementById("btn-restart");
+            let bMenu = document.getElementById("btn-menu");
+            let disp = document.getElementById("pending-card-display");
+            let hintEl = document.getElementById("pending-card-hint");
+
+            pnl.style.display = "block";
+            t.innerHTML = text;
+            bChi.style.display = "none";
+            bPeng.style.display = "none";
+            bConf.style.display = "none";
+            bPass.style.display = "none";
+            bInt.style.display = "none";
+            bPassInt.style.display = "none";
+            bRest.style.display = "none";
+            bMenu.style.display = "none";
+            disp.innerHTML = "";
+            hintEl.style.display = "none";
+            hintEl.innerHTML = "";
+
+            if(st === "WAITING_FOR_ACTION") {
+                if(currentCanChi) bChi.style.display = "inline-block";
+                if(currentCanPeng) bPeng.style.display = "inline-block";
+                bPass.style.display = "inline-block";
+                bPass.innerText = "过";
+                renderPendingCard(disp);
+                renderCardBondsHint(hintEl, pendingCardInfo.card);
+            } else if(st === "SELECTING_PENG") {
+                bConf.style.display = "inline-block";
+                bPass.style.display = "inline-block";
+                bPass.innerText = "取消";
+                renderPendingCard(disp);
+                renderCardBondsHint(hintEl, pendingCardInfo.card);
+            } else if(st === "AWAITING_RELATION_TARGET") {
+                bPass.style.display = "inline-block";
+                bPass.innerText = "取消";
+                renderPendingCard(disp);
+                renderCardBondsHint(hintEl, pendingCardInfo.card);
+            } else if(st === "INTERRUPTING") {
+                bInt.style.display = "inline-block";
+                bPassInt.style.display = "inline-block";
+            } else if(st === "GAME_OVER") {
+                bRest.style.display = "block";
+                bMenu.style.display = "block";
+            }
+        }
+
+        function renderCardBondsHint(hintEl, cardName) {
+            if(!cardName || !CARD_DB[cardName]) return;
+            let cData = CARD_DB[cardName];
+            let rels = cData.relations || [];
+            let facs = cData.factions || [];
+            
+            let html = "";
+            if(rels.length > 0) {
+                html += `<div><span class="hint-badge-relation">🔗 关系牌：</span>${rels.join("、")}</div>`;
+            }
+            if(facs.length > 0) {
+                let fStrs = facs.map(f => {
+                    let req = FACTION_INFO[f] ? FACTION_INFO[f].req : 0;
+                    return req > 0 ? `${f}(${req}人)` : f;
+                });
+                html += `<div><span class="hint-badge-faction">🛡️ 所属阵营：</span>${fStrs.join("、")}</div>`;
+            }
+            if(html !== "") {
+                hintEl.innerHTML = html;
+                hintEl.style.display = "block";
+            }
+        }
+
+        function renderPendingCard(container) {
+            if(!pendingCardInfo.card) return;
+            let c = document.createElement("div");
+            c.className = "card" + (pendingCardInfo.isUnskippable ? " unskippable" : "");
+            if(pendingCardInfo.isHatCombo) c.style.border = "3px solid #9c27b0";
+            c.style.backgroundImage = `url('${CARD_DB[pendingCardInfo.card].img}')`;
+            c.innerText = pendingCardInfo.isHatCombo ? "徐翱(合体)" : pendingCardInfo.card;
+            container.appendChild(c);
+        }
+
+        function updateUI() {
+            document.getElementById("deckCount").innerText = `牌库: ${deck.length}`;
+
+            for(let i=0; i<4; i++) {
+                let pEl = document.getElementById(`player-${i}`);
+                if(i === turn && gameState !== "GAME_OVER") pEl.classList.add("active-player");
+                else pEl.classList.remove("active-player");
+
+                let sp = document.getElementById(`status-${i}`);
+                sp.innerHTML = "";
+                if(buffs[i].immune) sp.innerHTML += `<div class="status-tag positive">🛡️ 护盾</div>`;
+                if(buffs[i].skipTurnCount > 0) sp.innerHTML += `<div class="status-tag negative">🚫 罚坐x${buffs[i].skipTurnCount}</div>`;
+                if(buffs[i].cannotDraw) sp.innerHTML += `<div class="status-tag negative">🈲 禁摸牌</div>`;
+                if(buffs[i].onlyChiPengTurns > 0) sp.innerHTML += `<div class="status-tag negative">🤐 嘲讽</div>`;
+                if(buffs[i].fishHookTurns > 0) sp.innerHTML += `<div class="status-tag positive">🎣 钓鱼中</div>`;
+                if(extraTurnQueue.includes(i)) sp.innerHTML += `<div class="status-tag extra">⏰ 候补追加</div>`;
+                if(buffs[i].loveLetter) sp.innerHTML += `<div class="status-tag love">💌 情书攻势(剩${buffs[i].loveLetter.remainingTurns})</div>`;
+
+                let hEl = document.getElementById(`hand-${i}`);
+                hEl.innerHTML = "";
+                players[i].hand.forEach((card, idx) => {
+                    let cDiv = document.createElement("div");
+                    cDiv.className = "card";
+                    if(CARD_DB[card].isWildcard) cDiv.classList.add("card-gold");
+                    if(unskippableNextCard && i === turn) cDiv.classList.add("unskippable");
+
+                    if(i === HUMAN_PLAYER) {
+                        cDiv.style.backgroundImage = `url('${CARD_DB[card].img}')`;
+                        cDiv.innerText = card;
+                        if(selectedCardsForPeng.includes(idx)) cDiv.classList.add("card-selected");
+
+                        let tc = document.createElement("div");
+                        tc.className = "tag-container";
+                        let factions = CARD_DB[card].factions || [];
+                        for(let f of factions) {
+                            let fi = FACTION_INFO[f];
+                            if(fi) {
+                                let tag = document.createElement("div");
+                                tag.className = "f-tag";
+                                tag.style.backgroundColor = fi.color;
+                                tag.style.clipPath = fi.shape;
+                                tag.innerText = fi.text;
+                                tc.appendChild(tag);
+                            }
+                        }
+                        cDiv.appendChild(tc);
+
+                        let tt = document.createElement("div");
+                        tt.className = "card-tooltip";
+                        tt.innerHTML = `<div class="tooltip-title">${card}</div>`;
+                        if(CARD_DB[card].onPlayDesc) tt.innerHTML += `<div class="tooltip-item" style="color:#00e676;">${CARD_DB[card].onPlayDesc}</div>`;
+                        if(factions.length > 0) tt.innerHTML += `<div class="tooltip-item"><b>阵营：</b>${factions.join("、")}</div>`;
+                        let rels = CARD_DB[card].relations || [];
+                        if(rels.length > 0) tt.innerHTML += `<div class="tooltip-item"><b>关系羁绊：</b>${rels.join("、")}</div>`;
+                        cDiv.appendChild(tt);
+                    } else {
+                        if(players[i].revealedCards.includes(card)) {
+                            cDiv.classList.add("card-revealed");
+                            cDiv.style.backgroundImage = `url('${CARD_DB[card].img}')`;
+                            cDiv.innerText = card;
+                            let rTag = document.createElement("div");
+                            rTag.className = "card-revealed-tag";
+                            rTag.innerText = "明牌";
+                            cDiv.appendChild(rTag);
+                        } else {
+                            cDiv.classList.add("card-back");
+                            cDiv.innerText = "";
+                        }
+                    }
+
+                    cDiv.onclick = (e) => { e.stopPropagation(); onCardClick(i, idx); };
+                    hEl.appendChild(cDiv);
+                });
+
+                let bEl = document.getElementById(`bond-${i}`);
+                bEl.innerHTML = players[i].bonds.length === 0 ? "副露区" : "";
+                players[i].bonds.forEach((b) => {
+                    let bg = document.createElement("div");
+                    bg.className = `bond-group`;
+
+                    let bt = document.createElement("div");
+                    bt.className = "bond-title";
+                    bt.style.backgroundColor = (b.type === "relation") ? "#e91e63" : "#ff9800";
+                    bt.innerText = b.name;
+                    bg.appendChild(bt);
+
+                    let bcc = document.createElement("div");
+                    bcc.className = "bond-cards-container";
+                    b.cards.forEach(bc => {
+                        let c = document.createElement("div");
+                        c.className = "card bond-card";
+                        c.style.backgroundImage = `url('${CARD_DB[bc].img}')`;
+                        c.innerText = bc;
+                        bcc.appendChild(c);
+                    });
+                    bg.appendChild(bcc);
+                    bEl.appendChild(bg);
+                });
+            }
+        }
+    </script>
+</body>
+</html>
