@@ -6,6 +6,7 @@ const path = require('node:path');
 const { randomBytes } = require('node:crypto');
 const { Server } = require('socket.io');
 const cookie = require('cookie');
+const { rateLimit, MemoryStore } = require('express-rate-limit');
 const { GameEngine } = require('./game');
 const { VERSION } = require('./public/rules');
 
@@ -15,15 +16,38 @@ const fail = (code, message) => ({ ok: false, code, message });
 const validText = (value, max) => typeof value === 'string' && value.trim().length > 0 && Array.from(value.trim()).length <= max && !/[\u0000-\u001f\u007f]/u.test(value);
 
 function createApplication(options = {}) {
-    const settings = { aiDelayMs: 700, actionTimeoutMs: 45000, reconnectGraceMs: 15000, idleRoomMs: 1800000, ...options };
-    for (const value of Object.values(settings)) if (!Number.isInteger(value) || value < 1) throw new Error('服务时间设置必须为正整数。');
+    const settings = {
+        aiDelayMs: 700, actionTimeoutMs: 45000, reconnectGraceMs: 15000, idleRoomMs: 1800000,
+        maxRooms: 8, maxSessions: 2048, maxSocketConnections: 40, maxSocketsPerSession: 2,
+        maxHttpConnections: 128, rateWindowMs: 60000, globalHttpLimit: 1200,
+        perIpHttpLimit: 600, perIpSessionLimit: 64, packetLimit: 60,
+        ...options,
+    };
+    for (const value of Object.values(settings)) if (!Number.isInteger(value) || value < 1) throw new Error('服务设置必须为正整数。');
     const app = express();
     const server = http.createServer(app);
     const sessions = new Map();
     const rooms = new Map();
+    const sessionSockets = new Map();
+    const activeSockets = new Set();
+    const rateStores = [];
     let stopped = false;
+    server.maxConnections = settings.maxHttpConnections;
+    server.requestTimeout = 15000;
+    server.headersTimeout = 10000;
+    server.keepAliveTimeout = 5000;
+    function limiter(limit, identifier, keyGenerator) {
+        const store = new MemoryStore();
+        rateStores.push(store);
+        return rateLimit({
+            windowMs: settings.rateWindowMs, limit, identifier, store,
+            standardHeaders: 'draft-8', legacyHeaders: false,
+            message: fail('RATE_LIMIT', '访问过于频繁，请稍后重试。'),
+            ...(keyGenerator ? { keyGenerator } : {}),
+        });
+    }
     app.disable('x-powered-by');
-    app.set('trust proxy', 'loopback');
+    app.set('trust proxy', process.env.TRUST_PROXY || 'loopback');
     app.use((req, res, next) => {
         res.set({
             'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
@@ -32,11 +56,13 @@ function createApplication(options = {}) {
         next();
     });
     app.get('/healthz', (req, res) => res.set('Cache-Control', 'no-store').json({ status: 'ok', version: VERSION, rooms: rooms.size }));
-    app.get('/api/session', (req, res) => {
+    app.use(limiter(settings.globalHttpLimit, 'global-http', () => 'all'));
+    app.use(limiter(settings.perIpHttpLimit, 'source-http'));
+    app.get('/api/session', limiter(settings.perIpSessionLimit, 'source-session'), (req, res) => {
         const token = cookie.parse(req.headers.cookie || '')[COOKIE_NAME];
         let session = sessions.get(token);
         if (!session) {
-            if (sessions.size >= 2048) return res.status(503).json(fail('BUSY', '服务繁忙，请稍后连接。'));
+            if (sessions.size >= settings.maxSessions) return res.status(503).json(fail('BUSY', '服务繁忙，请稍后连接。'));
             const id = randomBytes(32).toString('hex');
             session = { id, roomCode: null, seat: null, touched: Date.now(), actions: new Map() };
             sessions.set(id, session);
@@ -54,6 +80,7 @@ function createApplication(options = {}) {
     const io = new Server(server, {
         maxHttpBufferSize: 16384, pingInterval: 10000, pingTimeout: 10000,
         allowRequest(req, callback) {
+            if (io.engine.clientsCount >= settings.maxSocketConnections) return callback('服务器连接已满，请稍后重试。', false);
             const origin = req.headers.origin;
             callback(null, !origin || origin === `http://${req.headers.host}` || origin === `https://${req.headers.host}`);
         }
@@ -62,6 +89,22 @@ function createApplication(options = {}) {
         const id = cookie.parse(socket.request.headers.cookie || '')[COOKIE_NAME];
         const session = sessions.get(id);
         if (!session) return next(new Error('请刷新页面以建立会话。'));
+        if (activeSockets.size >= settings.maxSocketConnections) return next(new Error('服务器连接已满，请稍后重试。'));
+        const sockets = sessionSockets.get(id) || new Set();
+        if (sockets.size >= settings.maxSocketsPerSession) return next(new Error('当前浏览器打开的连接过多，请关闭其他游戏页面。'));
+        sockets.add(socket.id);
+        activeSockets.add(socket.id);
+        sessionSockets.set(id, sockets);
+        let released = false;
+        const release = () => {
+            if (released) return;
+            released = true;
+            activeSockets.delete(socket.id);
+            sockets.delete(socket.id);
+            if (!sockets.size && sessionSockets.get(id) === sockets) sessionSockets.delete(id);
+        };
+        socket.once('disconnect', release);
+        socket.conn.once('close', release);
         socket.data.session = session;
         socket.data.rate = new Map();
         next();
@@ -130,6 +173,12 @@ function createApplication(options = {}) {
         rooms.set(code, room);
         return room;
     }
+    function removeRoom(room) {
+        clearTimeout(room.timer);
+        for (const timer of room.disconnectTimers.values()) clearTimeout(timer);
+        rooms.delete(room.code);
+        for (const session of sessions.values()) if (session.roomCode === room.code) { session.roomCode = null; session.seat = null; }
+    }
     function membership(socket) {
         const session = socket.data.session;
         const room = rooms.get(session.roomCode);
@@ -146,13 +195,20 @@ function createApplication(options = {}) {
         }
     }
     io.on('connection', socket => {
+        socket.use((packet, next) => {
+            if (limited(socket, 'packets', settings.packetLimit, 1000)) {
+                socket.disconnect(true);
+                return;
+            }
+            next();
+        });
         socket.on('join_room', (data, ack) => {
             if (limited(socket, 'join', 10, 10000)) return response(socket, ack, fail('RATE_LIMIT', '连接操作过于频繁。'));
             if (!data || typeof data.roomCode !== 'string' || !/^[a-zA-Z0-9_-]{1,16}$/.test(data.roomCode) || !validText(data.name, 10)) return response(socket, ack, fail('INVALID_INPUT', '请输入1至10个字符的昵称，以及英文或数字房间代码。'));
             const code = data.roomCode.toUpperCase();
             const session = socket.data.session;
             if (session.roomCode && session.roomCode !== code && rooms.has(session.roomCode)) return response(socket, ack, fail('ALREADY_JOINED', '请返回原房间离开座位后再加入其他房间。'));
-            if (!rooms.has(code) && rooms.size >= 64) return response(socket, ack, fail('BUSY', '房间数量已达上限。'));
+            if (!rooms.has(code) && rooms.size >= settings.maxRooms) return response(socket, ack, fail('BUSY', '房间数量已达上限。'));
             const room = rooms.get(code) || createRoom(code);
             let player = room.game.players.find(p => p.ownerId === session.id);
             if (!player) player = room.game.players.find(p => !p.ownerId && !p.connected);
@@ -184,6 +240,7 @@ function createApplication(options = {}) {
             socket.leave(room.code); session.roomCode = null; session.seat = null; session.actions.clear();
             broadcast(room);
             response(socket, ack, { ok: true });
+            if (room.game.players.every(player => !player.ownerId && !player.connected)) removeRoom(room);
         });
         socket.on('update_name', (data, ack) => {
             const member = membership(socket);
@@ -262,11 +319,9 @@ function createApplication(options = {}) {
         });
     });
     const cleanup = setInterval(() => {
-        for (const [code, room] of rooms) {
+        for (const room of rooms.values()) {
             if (room.game.players.some(p => p.connected) || Date.now() - room.touched < settings.idleRoomMs) continue;
-            clearTimeout(room.timer); for (const timer of room.disconnectTimers.values()) clearTimeout(timer);
-            rooms.delete(code);
-            for (const session of sessions.values()) if (session.roomCode === code) { session.roomCode = null; session.seat = null; }
+            removeRoom(room);
         }
         for (const [id, session] of sessions) if (!session.roomCode && Date.now() - session.touched > 86400000) sessions.delete(id);
     }, 60000);
@@ -277,6 +332,7 @@ function createApplication(options = {}) {
         close() {
             stopped = true;
             clearInterval(cleanup);
+            for (const store of rateStores) store.shutdown();
             for (const room of rooms.values()) { clearTimeout(room.timer); for (const timer of room.disconnectTimers.values()) clearTimeout(timer); }
             return new Promise(resolve => io.close(resolve));
         }
@@ -286,7 +342,11 @@ function createApplication(options = {}) {
 if (require.main === module) {
     const port = Number(process.env.PORT || 3000);
     if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT 必须是1至65535之间的整数。');
-    const application = createApplication();
+    const application = createApplication({
+        maxRooms: Number(process.env.MAX_ROOMS || 8),
+        maxSocketConnections: Number(process.env.MAX_SOCKET_CONNECTIONS || 40),
+        maxHttpConnections: Number(process.env.MAX_HTTP_CONNECTIONS || 128),
+    });
     application.listen(port).then(() => {
         console.log(`四班抽象之奕 ${VERSION}`);
         console.log(`游戏入口：http://localhost:${port}`);
