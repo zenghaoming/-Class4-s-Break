@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#183c28">
+    <title>四班抽象之奕 · 联机对决</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/socket.io/socket.io.js" defer></script>
+    <script src="/rules.js" defer></script>
+    <script src="/app.js" defer></script>
+</head>
+<body>
+<div id="connection-banner" role="status" aria-live="polite">正在连接服务器…</div>
+<div id="notification" role="alert" aria-live="assertive" hidden></div>
+<main>
+    <section id="main-menu-screen" aria-labelledby="game-title">
+        <h1 class="game-title" id="game-title">四班抽象之奕</h1>
+        <p class="subtitle">四人轮转 · 人物羁绊 · 组合对决</p>
+        <form id="join-form">
+            <label for="player-nickname-input">选手昵称</label>
+            <input id="player-nickname-input" type="text" maxlength="10" placeholder="输入昵称" autocomplete="nickname" required>
+            <label for="room-code-input">房间代码</label>
+            <input id="room-code-input" type="text" maxlength="16" pattern="[a-zA-Z0-9_-]+" value="CLASS4" required>
+            <p class="help">与朋友填写相同代码即可同桌，新代码会创建房间。</p>
+            <button class="menu-btn" id="join-btn" type="submit" disabled>进入联机对决</button>
+        </form>
+        <div class="menu-links"><button id="menu-rules-btn">玩法说明</button><button id="reconnect-btn">重新连接</button></div>
+        <p id="join-error" role="alert"></p>
+    </section>
+    <section id="game-screen" hidden aria-label="游戏牌桌">
+        <header id="top-bar">
+            <div class="table-meta"><strong>四班抽象之奕</strong><span id="room-badge" class="badge"></span><span id="my-seat-badge" class="badge"></span><span id="deck-left-badge" class="badge"></span></div>
+            <nav aria-label="房间操作">
+                <button id="restart-btn" class="top-btn" data-host-command="restart_game">🔄 重新开始</button>
+                <button id="encyclopedia-btn" class="top-btn">📖 羁绊图鉴</button>
+                <button id="fill-ai-btn" class="top-btn" data-host-command="fill_ai_players">🤖 补齐AI</button>
+                <button id="start-btn" class="top-btn" data-host-command="force_start_game">🎮 立即开局</button>
+                <button id="clear-ai-btn" class="top-btn" data-host-command="clear_ai_players">清空AI</button>
+                <button id="rename-btn" class="top-btn">✏️ 改名</button>
+                <button id="rules-btn" class="top-btn">玩法说明</button>
+                <button id="leave-btn" class="top-btn">离开房间</button>
+            </nav>
+        </header>
+        <div id="table-board">
+            <section id="player-2" class="player-area"><h2 id="title-2" class="area-title">对家</h2><div id="status-2" class="status-panel"></div><div id="hand-2" class="hand-area"></div><div id="bond-2" class="bond-area"></div></section>
+            <section id="player-1" class="player-area"><h2 id="title-1" class="area-title">下家</h2><div id="status-1" class="status-panel"></div><div id="hand-1" class="hand-area"></div><div id="bond-1" class="bond-area"></div></section>
+            <section id="center-board" aria-label="出牌与响应">
+                <div id="center-info">
+                    <p id="turn-indicator" role="status" aria-live="polite"></p>
+                    <p id="countdown" class="help"></p>
+                    <p id="pending-card-hint"></p>
+                    <div id="pending-card-wrap"></div>
+                    <div id="decision-buttons"></div>
+                </div>
+                <details id="river-details"><summary>查看弃牌</summary><div id="rivers"><div id="river-0" class="river"></div><div id="river-1" class="river"></div><div id="river-2" class="river"></div><div id="river-3" class="river"></div></div></details>
+            </section>
+            <section id="player-3" class="player-area"><h2 id="title-3" class="area-title">上家</h2><div id="status-3" class="status-panel"></div><div id="hand-3" class="hand-area"></div><div id="bond-3" class="bond-area"></div></section>
+        </div>
+        <section id="hand-card-inspector" aria-label="卡牌详情"><strong id="inspect-title">卡牌详情</strong><div id="inspect-content">选择、聚焦或悬停手牌可查看说明。</div></section>
+        <section id="player-0" class="player-area own-player"><h2 id="title-0" class="area-title">我</h2><div id="status-0" class="status-panel"></div><div id="hand-0" class="hand-area" aria-label="我的手牌"></div><div id="bond-0" class="bond-area"></div></section>
+        <div class="auxiliary">
+            <section id="bond-log-area"><h2 id="bond-log-title">📜 实时对决播报</h2><div id="bond-log-content" role="log" aria-live="off"></div></section>
+            <section id="chat-widget"><button id="chat-header" aria-expanded="true" aria-controls="chat-content">💬 局内交流 <span id="chat-toggle-icon">▼</span></button><div id="chat-content"><div id="chat-messages" role="log" aria-live="polite"></div><form id="chat-input-row"><label class="sr-only" for="chat-input">聊天消息</label><input id="chat-input" maxlength="80" placeholder="输入消息，按 Enter 发送" autocomplete="off"><button id="chat-send-btn" type="submit">发送</button></form></div></section>
+        </div>
+    </section>
+</main>
+<dialog id="encyclopedia-modal" aria-labelledby="enc-title">
+    <div class="dialog-heading"><h2 id="enc-title">羁绊图鉴</h2><button data-close="encyclopedia-modal">✕ 关闭</button></div>
+    <div class="enc-tabs" role="tablist" aria-label="图鉴分类"><button class="enc-tab" role="tab" data-tab="FACTION">阵营全集</button><button class="enc-tab" role="tab" data-tab="RELATION">关系网羁绊</button><button class="enc-tab" role="tab" data-tab="CARD">人物全图鉴</button></div>
+    <div id="enc-cards-list" class="enc-body" role="tabpanel"></div>
+</dialog>
+<dialog id="rules-modal" aria-labelledby="rules-title"><div class="dialog-heading"><h2 id="rules-title">玩法说明</h2><button data-close="rules-modal">✕ 关闭</button></div><ol id="rules-list"></ol><p id="clown-rules"></p><p>键盘：Tab切换控件；Enter或空格选择卡牌；方向键切换手牌；Escape关闭说明。出牌需要点击确认按钮。</p></dialog>
+<dialog id="gameover-modal" aria-labelledby="gameover-title"><h2 id="gameover-title" class="gameover-title"></h2><p id="gameover-reason-text"></p><button id="again-btn" class="menu-btn">🔄 再来一局 (重新开始)</button><button id="view-board-btn">查看牌桌</button></dialog>
+<dialog id="name-modal" aria-labelledby="name-title"><h2 id="name-title">修改昵称</h2><form id="name-form"><label for="new-name-input">新昵称</label><input id="new-name-input" maxlength="10" required><button type="submit">保存昵称</button><button type="button" data-close="name-modal">取消</button></form></dialog>
+<dialog id="confirm-modal" aria-labelledby="confirm-title"><h2 id="confirm-title"></h2><p id="confirm-description"></p><button id="confirm-action-btn">确认</button><button data-close="confirm-modal">取消</button></dialog>
+<dialog id="reveal-modal" aria-labelledby="reveal-title"><h2 id="reveal-title">哑婆婆 · 手牌透视</h2><p id="reveal-content"></p><button data-close="reveal-modal">知道了</button></dialog>
+<div id="splash-text" aria-hidden="true"></div>
+<footer>四班抽象之奕 <span id="build-version"></span></footer>
+</body>
+</html>
