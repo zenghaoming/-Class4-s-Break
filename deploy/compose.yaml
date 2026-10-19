@@ -1,0 +1,72 @@
+name: class4
+services:
+  game:
+    image: ${CLASS4_GAME_IMAGE:?}
+    container_name: class4-game
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.35
+    cpu_shares: 32
+    mem_limit: 256m
+    memswap_limit: 256m
+    pids_limit: 64
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      MAX_ROOMS: "8"
+      MAX_SOCKET_CONNECTIONS: "40"
+      MAX_HTTP_CONNECTIONS: "128"
+      TRUST_PROXY: "loopback,172.30.44.0/29"
+      TMPDIR: /run/class4
+    networks: [private]
+    tmpfs:
+      - /run/class4:rw,noexec,nosuid,size=16m,mode=700,uid=1000,gid=1000
+    ulimits:
+      nofile:
+        soft: 1024
+        hard: 1024
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+  tunnel:
+    image: ${CLASS4_TUNNEL_IMAGE:?}
+    container_name: class4-domain
+    user: "1000:1000"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    cpus: 0.15
+    cpu_shares: 32
+    mem_limit: 128m
+    memswap_limit: 128m
+    pids_limit: 64
+    restart: unless-stopped
+    command: [tunnel, --no-autoupdate, --config, /etc/cloudflared/config.yml, run]
+    depends_on:
+      game:
+        condition: service_healthy
+    volumes:
+      - ${CLASS4_TUNNEL_CONFIG:?}:/etc/cloudflared/config.yml:ro
+      - ${CLASS4_TUNNEL_CREDENTIALS:?}:/etc/cloudflared/tunnel.json:ro
+    ports:
+      - "127.0.0.1:20246:20246"
+    networks: [private, egress]
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "2"
+networks:
+  private:
+    name: class4-private
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.30.44.0/29
+  egress:
+    name: class4-egress

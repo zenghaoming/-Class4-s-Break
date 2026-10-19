@@ -81,7 +81,7 @@
         return CARD_DB[playedName].factions.filter(f => FACTION_INFO[f].req === selectedNames.length + 1 && selectedNames.every(name =>
             Object.hasOwn(CARD_DB, name) && (CARD_DB[name].isWildcard || CARD_DB[name].factions.includes(f))));
     }
-    const rules = { VERSION: '2.5.0', CARD_DB, FACTION_INFO, RELATION_MAP, CLOWN_DESC, BASIC_RULES, relationKey, matchedFactions };
+    const rules = { VERSION: '2.5.1', CARD_DB, FACTION_INFO, RELATION_MAP, CLOWN_DESC, BASIC_RULES, relationKey, matchedFactions };
     if (typeof module !== 'undefined') module.exports = rules;
     else globalThis.GameRules = rules;
 })();
